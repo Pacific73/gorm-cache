@@ -21,6 +21,10 @@ type CacheConfig struct {
 	// CacheTTL cache ttl in ms, where 0 represents forever
 	CacheTTL int64
 
+	// CacheMaxItemCnt for given query, if objects retrieved are more than this cnt,
+	// then we choose not to cache for this query. 0 represents caching all queries.
+	CacheMaxItemCnt int64
+
 	// PrimaryCacheSize cache maximal size for primary cache, in MB
 	PrimaryCacheSize int
 

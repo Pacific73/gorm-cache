@@ -7,17 +7,14 @@ import (
 )
 
 func NewGorm2Cache(cacheConfig *config.CacheConfig) *cache.Gorm2Cache {
-	// TODO
 	logger := config.DefaultLogger
 	if cacheConfig.DebugLogger != nil {
 		logger = cacheConfig.DebugLogger
 	}
 
 	return &cache.Gorm2Cache{
-		Config:    cacheConfig,
-		Db:        nil,
-		DataLayer: nil,
-		Logger:    logger,
+		Config: cacheConfig,
+		Logger: logger,
 	}
 }
 
