@@ -1,39 +1,54 @@
 package callback
 
 import (
-	"context"
 	"fmt"
-	"reflect"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-func GetPrimaryKeysAfterCreate(db *gorm.DB) []string {
+func GetPrimaryKeysFromWhereClause(db *gorm.DB) []string {
 	primaryKeys := make([]string, 0)
 
-	objects := make([]reflect.Value, 0)
-
-	destValue := reflect.Indirect(reflect.ValueOf(db.Statement.Dest))
-	switch destValue.Kind() {
-	case reflect.Slice, reflect.Array:
-		for i := 0; i < destValue.Len(); i++ {
-			elem := destValue.Index(i)
-			objects = append(objects, elem)
-		}
-	case reflect.Struct:
-		objects = append(objects, destValue)
+	cla, ok := db.Statement.Clauses["WHERE"]
+	if !ok {
+		return nil
 	}
-
-	for _, elemValue := range objects {
-		for _, field := range db.Statement.Schema.Fields {
-			if field.PrimaryKey {
-				primaryKey, isZero := field.ValueOf(context.Background(), elemValue)
-				if isZero {
+	where, ok := cla.Expression.(clause.Where)
+	if !ok {
+		return nil
+	}
+	for _, field := range db.Statement.Schema.Fields {
+		if field.PrimaryKey {
+			for _, expr := range where.Exprs {
+				eqExpr, ok := expr.(clause.Eq)
+				if ok {
+					if getColNameFromColumn(eqExpr.Column) == field.DBName {
+						primaryKeys = append(primaryKeys, fmt.Sprintf("%v", eqExpr.Value))
+					}
 					continue
 				}
-				primaryKeys = append(primaryKeys, fmt.Sprintf("%v", primaryKey))
+				inExpr, ok := expr.(clause.IN)
+				if ok {
+					if getColNameFromColumn(inExpr.Column) == field.DBName {
+						for _, val := range inExpr.Values {
+							primaryKeys = append(primaryKeys, fmt.Sprintf("%v", val))
+						}
+					}
+				}
 			}
 		}
 	}
 	return primaryKeys
+}
+
+func getColNameFromColumn(col interface{}) string {
+	switch v := col.(type) {
+	case string:
+		return v
+	case clause.Column:
+		return v.Name
+	default:
+		return ""
+	}
 }
