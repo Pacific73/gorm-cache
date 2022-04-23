@@ -10,6 +10,17 @@ type CacheConfig struct {
 	// RedisConfig if storage is redis, then this config needs to be setup
 	RedisConfig *RedisConfig
 
+	// Tables only cache data within given data tables (cache all if empty)
+	Tables []string
+
+	// InvalidateWhenUpdate
+	// if user update/delete/create something in DB, we invalidate all cached data to ensure consistency,
+	// else we do nothing to outdated cache.
+	InvalidateWhenUpdate bool
+
+	// CacheTTL cache ttl in ms, where 0 represents forever
+	CacheTTL int64
+
 	// PrimaryCacheSize cache maximal size for primary cache, in MB
 	PrimaryCacheSize int
 
@@ -38,5 +49,3 @@ const (
 	CacheStorageMemory CacheStorage = 0
 	CacheStorageRedis  CacheStorage = 1
 )
-
-

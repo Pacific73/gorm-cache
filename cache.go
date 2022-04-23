@@ -6,31 +6,31 @@ import (
 	"github.com/go-redis/redis"
 )
 
-func NewGormCache(config *config.CacheConfig) *cache.Gorm2Cache {
+func NewGorm2Cache(cacheConfig *config.CacheConfig) *cache.Gorm2Cache {
 	// TODO
-	return nil
-}
+	logger := config.DefaultLogger
+	if cacheConfig.DebugLogger != nil {
+		logger = cacheConfig.DebugLogger
+	}
 
-func NewRedisConfigWithHostPort(host string, port int) *config.RedisConfig {
-	return &config.RedisConfig{
-		Mode:     config.RedisConfigModePort,
-		Host:     host,
-		Port:     port,
+	return &cache.Gorm2Cache{
+		Config:    cacheConfig,
+		Db:        nil,
+		DataLayer: nil,
+		Logger:    logger,
 	}
 }
 
-func NewRedisConfigWithPassword(host string, port int, password string) *config.RedisConfig {
+func NewRedisConfigWithOptions(options *redis.Options) *config.RedisConfig {
 	return &config.RedisConfig{
-		Mode:     config.RedisConfigModePort,
-		Host:     host,
-		Port:     port,
-		Password: password,
+		Mode:    config.RedisConfigModeOptions,
+		Options: options,
 	}
 }
 
 func NewRedisConfigWithClient(client *redis.Client) *config.RedisConfig {
 	return &config.RedisConfig{
-		Mode:     config.RedisConfigModeRaw,
-		Client:   client,
+		Mode:   config.RedisConfigModeRaw,
+		Client: client,
 	}
 }
