@@ -11,3 +11,7 @@ type Kv struct {
 	Key   string
 	Value string
 }
+
+const (
+	GormCachePrefix = "gormcache"
+)

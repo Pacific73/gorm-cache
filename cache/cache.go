@@ -48,9 +48,13 @@ func (c *Gorm2Cache) init() {
 		}
 		c.Config.RedisConfig.InitClient()
 	}
-	c.primaryCache.Init(c.Config)
-	c.searchCache.Init(c.Config)
 	c.InstanceId = util.GenInstanceId()
+
+	prefix := util.GormCachePrefix + ":" + c.InstanceId
+
+	c.primaryCache.Init(c.Config, prefix)
+	c.searchCache.Init(c.Config, prefix)
+
 }
 
 func (c *Gorm2Cache) GetHitCount() int64 {
@@ -91,7 +95,7 @@ func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string
 	for _, primaryKey := range primaryKeys {
 		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 	}
-	return c.primaryCache.BatchKeyExists(ctx, cacheKeys)
+	return c.primaryCache.BatchKeyExist(ctx, cacheKeys)
 }
 
 func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) bool {

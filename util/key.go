@@ -8,9 +8,9 @@ import (
 )
 
 func GenInstanceId() string {
-	charList := []byte("1234567890")
+	charList := []byte("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	rand.Seed(time.Now().Unix())
-	length := 10
+	length := 5
 	str := make([]byte, 0)
 	for i := 0; i < length; i++ {
 		str = append(str, charList[rand.Intn(len(charList))])
@@ -19,11 +19,11 @@ func GenInstanceId() string {
 }
 
 func GenPrimaryCacheKey(instanceId string, tableName string, primaryKey string) string {
-	return fmt.Sprintf("p:%s:%s:%s", instanceId, tableName, primaryKey)
+	return fmt.Sprintf("%s:%s:p:%s:%s", GormCachePrefix, instanceId, tableName, primaryKey)
 }
 
 func GenPrimaryCachePrefix(instanceId string, tableName string) string {
-	return "p:" + instanceId + ":" + tableName
+	return GormCachePrefix + ":" + instanceId + ":p:" + tableName
 }
 
 func GenSearchCacheKey(instanceId string, tableName string, sql string, vars ...interface{}) string {
@@ -32,9 +32,9 @@ func GenSearchCacheKey(instanceId string, tableName string, sql string, vars ...
 	for _, v := range vars {
 		buf.WriteString(fmt.Sprintf("%v", v))
 	}
-	return fmt.Sprintf("s:%s:%s:%s", instanceId, tableName, buf.String())
+	return fmt.Sprintf("%s:%s:s:%s:%s", GormCachePrefix, instanceId, tableName, buf.String())
 }
 
 func GenSearchCachePrefix(instanceId string, tableName string) string {
-	return "s:" + instanceId + ":" + tableName
+	return GormCachePrefix + ":" + instanceId + ":s:" + tableName
 }
