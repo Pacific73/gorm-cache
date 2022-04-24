@@ -60,9 +60,10 @@ func AfterQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 			err := json.Unmarshal([]byte(cacheValue), db.Statement.Dest)
 			if err != nil {
 				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal search cache error")
-				db.AddError(util.ErrCacheUnmarshal)
+				db.Error = util.ErrCacheUnmarshal
 				return
 			}
+			db.Error = nil
 			return
 		}
 
@@ -71,7 +72,7 @@ func AfterQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 			primaryKeyObjs, ok := db.InstanceGet("gorm:cache:primary_keys")
 			if !ok {
 				cache.Logger.CtxError(ctx, "[AfterQuery] cannot get primary keys from db instance get")
-				db.AddError(util.ErrCacheUnmarshal)
+				db.Error = util.ErrCacheUnmarshal
 				return
 			}
 			primaryKeys := primaryKeyObjs.([]string)
@@ -80,9 +81,10 @@ func AfterQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 			err := json.Unmarshal([]byte(finalValue), db.Statement.Dest)
 			if err != nil {
 				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal final value error")
-				db.AddError(util.ErrCacheUnmarshal)
+				db.Error = util.ErrCacheUnmarshal
 				return
 			}
+			db.Error = nil
 			return
 		}
 	}

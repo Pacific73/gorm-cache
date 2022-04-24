@@ -15,6 +15,7 @@ type DataLayerInterface interface {
 	BatchKeyExists(ctx context.Context, keys []string) bool
 	KeyExists(ctx context.Context, key string) bool
 	GetValue(ctx context.Context, key string) string
+	BatchGetValues(ctx context.Context, keys []string) []string
 
 	// write
 

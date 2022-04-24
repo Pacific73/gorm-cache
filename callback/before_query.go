@@ -15,7 +15,7 @@ func BeforeQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 
 			keyExists := cache.SearchKeyExists(ctx, tableName, db.Statement.SQL.String(), db.Statement.Vars...)
 			if keyExists {
-				db.AddError(util.SearchCacheHit)
+				db.Error = util.SearchCacheHit
 				return
 			}
 
@@ -31,7 +31,7 @@ func BeforeQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 			allKeyExist := cache.BatchPrimaryKeyExists(ctx, tableName, primaryKeys)
 			if allKeyExist {
 				db.InstanceSet("gorm:cache:primary_keys", primaryKeys)
-				db.AddError(util.PrimaryCacheHit)
+				db.Error = util.PrimaryCacheHit
 				// if part or none of the objects are cached, query the database
 				return
 			}

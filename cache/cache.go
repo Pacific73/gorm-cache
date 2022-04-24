@@ -115,9 +115,14 @@ func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tabl
 }
 
 func (c *Gorm2Cache) GetSearchCache(ctx context.Context, tableName string, sql string, vars ...interface{}) string {
-
+	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
+	return c.searchCache.GetValue(ctx, key)
 }
 
 func (c *Gorm2Cache) BatchGetPrimaryCache(ctx context.Context, tableName string, primaryKeys []string) []string {
-
+	cacheKeys := make([]string, 0, len(primaryKeys))
+	for _, primaryKey := range primaryKeys {
+		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
+	}
+	return c.primaryCache.BatchGetValues(ctx, cacheKeys)
 }
