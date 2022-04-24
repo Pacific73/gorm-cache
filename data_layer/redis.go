@@ -2,6 +2,7 @@ package data_layer
 
 import (
 	"context"
+	"time"
 
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/Pacific73/gorm-cache/util"
@@ -112,21 +113,40 @@ func (r *RedisLayer) BatchGetValues(ctx context.Context, keys []string) ([]strin
 }
 
 func (r *RedisLayer) DeleteKeysWithPrefix(ctx context.Context, keyPrefix string) error {
-
+	result := r.client.EvalSha(r.cleanCacheSha, []string{"0"}, keyPrefix+":*")
+	return result.Err()
 }
 
 func (r *RedisLayer) DeleteKey(ctx context.Context, key string) error {
-
+	return r.client.Del(key).Err()
 }
 
 func (r *RedisLayer) BatchDeleteKeys(ctx context.Context, keys []string) error {
-
+	return r.client.Del(keys...).Err()
 }
 
 func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
-
+	if r.ttl == 0 {
+		spreads := make([]interface{}, 0, len(kvs))
+		for _, kv := range kvs {
+			spreads = append(spreads, kv.Key)
+			spreads = append(spreads, kv.Value)
+		}
+		return r.client.MSet(spreads...).Err()
+	}
+	_, err := r.client.Pipelined(func(pipeliner redis.Pipeliner) error {
+		for _, kv := range kvs {
+			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(r.ttl))
+			if result.Err() != nil {
+				r.logger.CtxError(ctx, "[BatchSetKeys] set key %s error: %v", kv.Key, result.Err())
+				return result.Err()
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 func (r *RedisLayer) SetKey(ctx context.Context, kv util.Kv) error {
-
+	return r.client.Set(kv.Key, kv.Value, time.Duration(r.ttl)).Err()
 }
