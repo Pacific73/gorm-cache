@@ -52,7 +52,10 @@ func AfterQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 				cache.BatchSetPrimaryKeyCache(ctx, tableName, kvs)
 			}()
 			return
-		} else if errors.Is(db.Error, util.SearchCacheHit) {
+		}
+
+		if errors.Is(db.Error, util.SearchCacheHit) {
+			// search cache hit
 			cacheValue := cache.GetSearchCache(ctx, tableName, db.Statement.SQL.String(), db.Statement.Vars...)
 			err := json.Unmarshal([]byte(cacheValue), db.Statement.Dest)
 			if err != nil {
@@ -61,7 +64,10 @@ func AfterQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 				return
 			}
 			return
-		} else if errors.Is(db.Error, util.PrimaryCacheHit) {
+		}
+
+		if errors.Is(db.Error, util.PrimaryCacheHit) {
+			// primary cache hit
 			primaryKeyObjs, ok := db.InstanceGet("gorm:cache:primary_keys")
 			if !ok {
 				cache.Logger.CtxError(ctx, "[AfterQuery] cannot get primary keys from db instance get")
