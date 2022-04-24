@@ -2,16 +2,12 @@ package callback
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
-
-var primaryCacheHit = errors.New("primary cache hit")
-var searchCacheHit = errors.New("search cache hit")
 
 // getPrimaryKeysFromWhereClause try to find primary keys from Eq and IN exprs in WHERE clause,
 // and get objects that are being operated
@@ -91,15 +87,6 @@ func hasOtherClauseExceptPrimaryField(db *gorm.DB) bool {
 	return false
 }
 
-func ContainString(target string, slice []string) bool {
-	for _, s := range slice {
-		if target == s {
-			return true
-		}
-	}
-	return false
-}
-
 func GetObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface{}) {
 	primaryKeys = make([]string, 0)
 	values := make([]reflect.Value, 0)
@@ -124,6 +111,7 @@ func GetObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface
 					continue
 				}
 				primaryKeys = append(primaryKeys, fmt.Sprintf("%v", primaryKey))
+				break
 			}
 		}
 		objects = append(objects, elemValue.Interface())

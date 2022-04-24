@@ -2,8 +2,9 @@ package cache
 
 import (
 	"context"
+	"sync/atomic"
 
-	"github.com/Pacific73/gorm-cache/key"
+	"github.com/Pacific73/gorm-cache/util"
 
 	"github.com/Pacific73/gorm-cache/callback"
 	"github.com/Pacific73/gorm-cache/config"
@@ -12,12 +13,14 @@ import (
 )
 
 type Gorm2Cache struct {
-	Config *config.CacheConfig
-	Logger config.LoggerInterface
+	Config     *config.CacheConfig
+	Logger     config.LoggerInterface
+	InstanceId string
 
-	db        *gorm.DB
-	dataLayer data_layer.DataLayerInterface
-	hitCount  int64
+	db           *gorm.DB
+	primaryCache data_layer.DataLayerInterface
+	searchCache  data_layer.DataLayerInterface
+	hitCount     int64
 }
 
 func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
@@ -39,71 +42,82 @@ func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
 }
 
 func (c *Gorm2Cache) init() {
-
+	if c.Config.CacheStorage == config.CacheStorageRedis {
+		if c.Config.RedisConfig == nil {
+			panic("please init redis config!")
+		}
+		c.Config.RedisConfig.InitClient()
+	}
+	c.primaryCache.Init(c.Config)
+	c.searchCache.Init(c.Config)
+	c.InstanceId = util.GenInstanceId()
 }
 
 func (c *Gorm2Cache) GetHitCount() int64 {
-	return c.hitCount
+	return atomic.LoadInt64(&c.hitCount)
+}
+
+func (c *Gorm2Cache) ResetHitCount() {
+	atomic.StoreInt64(&c.hitCount, 0)
+}
+
+func (c *Gorm2Cache) ResetCache() {
+	c.searchCache.CleanCache()
+	c.primaryCache.CleanCache()
 }
 
 func (c *Gorm2Cache) InvalidateSearchCache(ctx context.Context, tableName string) {
-	err := c.dataLayer.DeleteKeysWithPrefix(ctx, key.GenSearchCachePrefix(tableName))
-	if err != nil {
-		c.Logger.CtxDebug(ctx, "[InvalidateSearchCache] invalidating search cache for table %s error: %v",
-			tableName, err)
-	}
+	c.searchCache.DeleteKeysWithPrefix(ctx, util.GenSearchCachePrefix(c.InstanceId, tableName))
 }
 
 func (c *Gorm2Cache) InvalidatePrimaryCache(ctx context.Context, tableName string, primaryKey string) {
-	err := c.dataLayer.DeleteKey(ctx, key.GenPrimaryCacheKey(tableName, primaryKey))
-	if err != nil {
-		c.Logger.CtxDebug(ctx, "[InvalidatePrimaryCache] invalidating primary cache for key %s:%s error: %v",
-			tableName, primaryKey, err)
-	}
+	c.primaryCache.DeleteKey(ctx, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 }
 
 func (c *Gorm2Cache) BatchInvalidatePrimaryCache(ctx context.Context, tableName string, primaryKeys []string) {
-
 	cacheKeys := make([]string, 0, len(primaryKeys))
 	for _, primaryKey := range primaryKeys {
-		cacheKeys = append(cacheKeys, key.GenPrimaryCacheKey(tableName, primaryKey))
+		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 	}
-
-	err := c.dataLayer.BatchDeleteKeys(ctx, cacheKeys)
-	if err != nil {
-		c.Logger.CtxDebug(ctx, "[BatchInvalidatePrimaryCache] batch invalidating primary cache for keys %v error: %v",
-			primaryKeys, err)
-	}
+	c.primaryCache.BatchDeleteKeys(ctx, cacheKeys)
 }
 
 func (c *Gorm2Cache) InvalidateAllPrimaryCache(ctx context.Context, tableName string) {
-	err := c.dataLayer.DeleteKeysWithPrefix(ctx, key.GenPrimaryCachePrefix(tableName))
-	if err != nil {
-		c.Logger.CtxDebug(ctx, "[InvalidateAllPrimaryCache] invalidating all primary cache for table %s error: %v",
-			tableName, err)
-	}
+	c.primaryCache.DeleteKeysWithPrefix(ctx, util.GenPrimaryCachePrefix(c.InstanceId, tableName))
 }
 
 func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string, primaryKeys []string) bool {
 	cacheKeys := make([]string, 0, len(primaryKeys))
 	for _, primaryKey := range primaryKeys {
-		cacheKeys = append(cacheKeys, key.GenPrimaryCacheKey(tableName, primaryKey))
+		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 	}
-	allExists, err := c.dataLayer.BatchKeyExists(ctx, cacheKeys)
-	if err != nil {
-		c.Logger.CtxDebug(ctx, "[BatchPrimaryKeyExists] checking batch primary keys %v exists error: %v",
-			primaryKeys, err)
-		return false
-	}
-	return allExists
+	return c.primaryCache.BatchKeyExists(ctx, cacheKeys)
 }
 
-func (c *Gorm2Cache) SQLKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) bool {
-	cacheKey := key.GenSearchCacheKey(tableName, SQL, vars...)
-	exists, err := c.dataLayer.KeyExists(ctx, cacheKey)
-	if err != nil {
-		c.Logger.CtxDebug(ctx, "[SQLKeyExists] checking SQL key %s exists error: %v", cacheKey, err)
-		return false
+func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) bool {
+	cacheKey := util.GenSearchCacheKey(c.InstanceId, tableName, SQL, vars...)
+	return c.searchCache.KeyExists(ctx, cacheKey)
+}
+
+func (c *Gorm2Cache) BatchSetPrimaryKeyCache(ctx context.Context, tableName string, kvs []util.Kv) {
+	for _, kv := range kvs {
+		kv.Key = util.GenPrimaryCacheKey(c.InstanceId, tableName, kv.Key)
 	}
-	return exists
+	c.primaryCache.BatchSetKeys(ctx, kvs)
+}
+
+func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tableName string, sql string, vars ...interface{}) {
+	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
+	c.searchCache.SetKey(ctx, util.Kv{
+		Key:   key,
+		Value: cacheValue,
+	})
+}
+
+func (c *Gorm2Cache) GetSearchCache(ctx context.Context, tableName string, sql string, vars ...interface{}) string {
+
+}
+
+func (c *Gorm2Cache) BatchGetPrimaryCache(ctx context.Context, tableName string, primaryKeys []string) []string {
+
 }

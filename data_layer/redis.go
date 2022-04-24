@@ -1,3 +1,11 @@
 package data_layer
 
-type RedisLayer struct {}
+import "github.com/go-redis/redis"
+
+type RedisLayer struct {
+	client *redis.Client
+}
+
+func (r *RedisLayer) a() {
+	r.client.Get("").Err()
+}
