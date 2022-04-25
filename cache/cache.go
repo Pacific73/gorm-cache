@@ -126,8 +126,8 @@ func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL 
 }
 
 func (c *Gorm2Cache) BatchSetPrimaryKeyCache(ctx context.Context, tableName string, kvs []util.Kv) error {
-	for _, kv := range kvs {
-		kv.Key = util.GenPrimaryCacheKey(c.InstanceId, tableName, kv.Key)
+	for idx, kv := range kvs {
+		kvs[idx].Key = util.GenPrimaryCacheKey(c.InstanceId, tableName, kv.Key)
 	}
 	return c.primaryCache.BatchSetKeys(ctx, kvs)
 }

@@ -3,7 +3,9 @@ package cache
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/Pacific73/gorm-cache/util"
 
@@ -17,18 +19,27 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 
 		if db.Error == nil {
 			// error is nil -> cache not hit, we cache newly retrieved data
-			primaryKeys, objects := GetObjectsAfterLoad(db)
+			primaryKeys, objects := getObjectsAfterLoad(db)
+
+			var wg sync.WaitGroup
+			wg.Add(2)
 
 			go func() {
+				defer wg.Done()
+
 				// cache search data
-				sql := db.Statement.SQL.String()
+				sqlObj, _ := db.InstanceGet("gorm:cache:sql")
+				sql := sqlObj.(string)
+				varObj, _ := db.InstanceGet("gorm:cache:vars")
+				vars := varObj.([]interface{})
+
 				cache.Logger.CtxInfo(ctx, "[AfterQuery] start to set search cache for sql: %s", sql)
 				cacheBytes, err := json.Marshal(objects)
 				if err != nil {
 					cache.Logger.CtxError(ctx, "[AfterQuery] cannot marshal cache for sql: %s, not cached", sql)
 					return
 				}
-				err = cache.SetSearchCache(ctx, string(cacheBytes), tableName, sql, db.Statement.Vars...)
+				err = cache.SetSearchCache(ctx, string(cacheBytes), tableName, sql, vars)
 				if err != nil {
 					cache.Logger.CtxError(ctx, "[AfterQuery] set search cache for sql: %s error: %v", sql, err)
 					return
@@ -37,6 +48,8 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 			}()
 
 			go func() {
+				defer wg.Done()
+
 				// cache primary cache data
 				if len(primaryKeys) != len(objects) {
 					return
@@ -53,12 +66,14 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 						Value: string(jsonStr),
 					})
 				}
+				cache.Logger.CtxInfo(ctx, "[AfterQuery] start to set primary cache for kvs: %+v", kvs)
 				err := cache.BatchSetPrimaryKeyCache(ctx, tableName, kvs)
 				if err != nil {
 					cache.Logger.CtxError(ctx, "[AfterQuery] batch set primary key cache for key %v error: %v",
 						primaryKeys, err)
 				}
 			}()
+			wg.Wait()
 			return
 		}
 
@@ -92,14 +107,27 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 			primaryKeys := primaryKeyObjs.([]string)
 			cacheValues, err := cache.BatchGetPrimaryCache(ctx, tableName, primaryKeys)
 			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] get primary cache value for key %v error %v", primaryKeys, err)
+				cache.Logger.CtxError(ctx, "[AfterQuery] get primary cache value for key %v error: %v", primaryKeys, err)
 				db.Error = util.ErrCacheLoadFailed
 				return
 			}
-			finalValue := "[" + strings.Join(cacheValues, ",") + "]"
+			finalValue := ""
+
+			destKind := reflect.Indirect(reflect.ValueOf(db.Statement.Dest)).Kind()
+			if destKind == reflect.Struct && len(cacheValues) == 1 {
+				finalValue = cacheValues[0]
+			} else if (destKind == reflect.Array || destKind == reflect.Slice) && len(cacheValues) > 1 {
+				finalValue = "[" + strings.Join(cacheValues, ",") + "]"
+			}
+			if len(finalValue) == 0 {
+				cache.Logger.CtxError(ctx, "[AfterQuery] length of cache values and dest not matched")
+				db.Error = util.ErrCacheUnmarshal
+				return
+			}
+
 			err = json.Unmarshal([]byte(finalValue), db.Statement.Dest)
 			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal final value error")
+				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal final value error: %v", err)
 				db.Error = util.ErrCacheUnmarshal
 				return
 			}

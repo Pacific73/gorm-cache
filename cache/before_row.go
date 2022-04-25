@@ -3,10 +3,12 @@ package cache
 import (
 	"github.com/Pacific73/gorm-cache/util"
 	"gorm.io/gorm"
+	"gorm.io/gorm/callbacks"
 )
 
 func BeforeRow(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
+		callbacks.BuildQuerySQL(db)
 		tableName := db.Statement.Schema.Table
 		ctx := db.Statement.Context
 

@@ -2,6 +2,7 @@ package data_layer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Pacific73/gorm-cache/config"
@@ -36,11 +37,11 @@ func (r *RedisLayer) initScripts() error {
 	batchKeyExistScript := `
 		for idx, val in pairs(KEYS) do
 			local exists = redis.call('EXISTS', val)
-			if exists == false then
-				return false
+			if exists == 0 then
+				return 0
 			end
 		end
-		return true`
+		return 1`
 
 	cleanCacheScript := `
 		local keys = redis.call('keys', ARGV[1])
@@ -82,6 +83,9 @@ func (r *RedisLayer) BatchKeyExist(ctx context.Context, keys []string) (bool, er
 		r.logger.CtxError(ctx, "[BatchKeyExist] eval script error: %v", result.Err())
 		return false, result.Err()
 	}
+	//fmt.Printf("%+v\n", result)
+	//res, _ := result.Result()
+	//fmt.Printf("%+v\n", res)
 	return result.Bool()
 }
 
@@ -102,6 +106,7 @@ func (r *RedisLayer) GetValue(ctx context.Context, key string) (string, error) {
 }
 
 func (r *RedisLayer) BatchGetValues(ctx context.Context, keys []string) ([]string, error) {
+	fmt.Println("batch get keys:", keys)
 	result := r.client.MGet(keys...)
 	if result.Err() != nil {
 		r.logger.CtxError(ctx, "[BatchGetValues] mget error: %v", result.Err())
@@ -110,7 +115,9 @@ func (r *RedisLayer) BatchGetValues(ctx context.Context, keys []string) ([]strin
 	slice := result.Val()
 	strs := make([]string, 0, len(slice))
 	for _, obj := range slice {
-		strs = append(strs, obj.(string))
+		if obj != nil {
+			strs = append(strs, obj.(string))
+		}
 	}
 	return strs, nil
 }
@@ -137,9 +144,9 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 		}
 		return r.client.MSet(spreads...).Err()
 	}
-	_, err := r.client.Pipelined(func(pipeliner redis.Pipeliner) error {
+	results, err := r.client.Pipelined(func(pipeliner redis.Pipeliner) error {
 		for _, kv := range kvs {
-			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Microsecond)
+			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Millisecond)
 			if result.Err() != nil {
 				r.logger.CtxError(ctx, "[BatchSetKeys] set key %s error: %v", kv.Key, result.Err())
 				return result.Err()
@@ -147,6 +154,10 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 		}
 		return nil
 	})
+	for _, result := range results {
+		fmt.Printf("%+v\n", result)
+	}
+
 	return err
 }
 

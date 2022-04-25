@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -22,28 +24,46 @@ func getPrimaryKeysFromWhereClause(db *gorm.DB) []string {
 	if !ok {
 		return nil
 	}
+	dbName := ""
 	for _, field := range db.Statement.Schema.Fields {
 		if field.PrimaryKey {
-			for _, expr := range where.Exprs {
-				eqExpr, ok := expr.(clause.Eq)
-				if ok {
-					if getColNameFromColumn(eqExpr.Column) == field.DBName {
-						primaryKeys = append(primaryKeys, fmt.Sprintf("%v", eqExpr.Value))
-					}
-					continue
+			dbName = field.DBName
+			break
+		}
+	}
+	if len(dbName) == 0 {
+		return nil
+	}
+	for _, expr := range where.Exprs {
+		eqExpr, ok := expr.(clause.Eq)
+		if ok {
+			if getColNameFromColumn(eqExpr.Column) == dbName {
+				primaryKeys = append(primaryKeys, fmt.Sprintf("%v", eqExpr.Value))
+			}
+			continue
+		}
+		inExpr, ok := expr.(clause.IN)
+		if ok {
+			if getColNameFromColumn(inExpr.Column) == dbName {
+				for _, val := range inExpr.Values {
+					primaryKeys = append(primaryKeys, fmt.Sprintf("%v", val))
 				}
-				inExpr, ok := expr.(clause.IN)
-				if ok {
-					if getColNameFromColumn(inExpr.Column) == field.DBName {
-						for _, val := range inExpr.Values {
-							primaryKeys = append(primaryKeys, fmt.Sprintf("%v", val))
-						}
-					}
+			}
+		}
+		exprStruct, ok := expr.(clause.Expr)
+		if ok {
+			ttype := getExprType(exprStruct)
+			//fmt.Printf("expr: %+v, ttype: %s\n", exprStruct, ttype)
+			if ttype == "in" || ttype == "eq" {
+				fieldName := getColNameFromExpr(exprStruct, ttype)
+				if fieldName == dbName {
+					pKeys := getPrimaryKeysFromExpr(exprStruct, ttype)
+					primaryKeys = append(primaryKeys, pKeys...)
 				}
 			}
 		}
 	}
-	return primaryKeys
+	return uniqueStringSlice(primaryKeys)
 }
 
 func getColNameFromColumn(col interface{}) string {
@@ -63,31 +83,125 @@ func hasOtherClauseExceptPrimaryField(db *gorm.DB) bool {
 		return false
 	}
 	where, ok := cla.Expression.(clause.Where)
+	dbName := ""
 	for _, field := range db.Statement.Schema.Fields {
 		if field.PrimaryKey {
-			for _, expr := range where.Exprs {
-				eqExpr, ok := expr.(clause.Eq)
-				if ok {
-					if getColNameFromColumn(eqExpr.Column) != field.DBName {
-						return true
-					}
-					continue
-				}
-				inExpr, ok := expr.(clause.IN)
-				if ok {
-					if getColNameFromColumn(inExpr.Column) != field.DBName {
-						return true
-					}
-					continue
-				}
+			dbName = field.DBName
+		}
+	}
+	if len(dbName) == 0 {
+		return true // return true to skip cache
+	}
+	for _, expr := range where.Exprs {
+		eqExpr, ok := expr.(clause.Eq)
+		if ok {
+			if getColNameFromColumn(eqExpr.Column) != dbName {
 				return true
 			}
+			continue
 		}
+		inExpr, ok := expr.(clause.IN)
+		if ok {
+			if getColNameFromColumn(inExpr.Column) != dbName {
+				return true
+			}
+			continue
+		}
+		exprStruct, ok := expr.(clause.Expr)
+		if ok {
+			ttype := getExprType(exprStruct)
+			if ttype == "in" || ttype == "eq" {
+				fieldName := getColNameFromExpr(exprStruct, ttype)
+				if fieldName != dbName {
+					return true
+				}
+				continue
+			}
+			return true
+		}
+		fmt.Printf("expr: %+v\n", expr)
+		return true
 	}
 	return false
 }
 
-func GetObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface{}) {
+func getExprType(expr clause.Expr) string {
+	// delete spaces
+	sql := strings.Replace(strings.ToLower(expr.SQL), " ", "", -1)
+
+	// see if sql has more than one clause
+	hasConnector := strings.Contains(sql, "and") || strings.Contains(sql, "or")
+
+	if strings.Contains(sql, "=") && !hasConnector {
+		// possibly "id=?" or "id=123"
+		fields := strings.Split(sql, "=")
+		if len(fields) == 2 {
+			_, isNumberErr := strconv.ParseInt(fields[1], 10, 64)
+			if fields[1] == "?" || isNumberErr == nil {
+				return "eq"
+			}
+		}
+	} else if strings.Contains(sql, "in") && !hasConnector {
+		// possibly "idIN(?)"
+		fields := strings.Split(sql, "in")
+		if len(fields) == 2 {
+			if len(fields[1]) > 1 && fields[1][0] == '(' && fields[1][len(fields[1])-1] == ')' {
+				return "in"
+			}
+		}
+	}
+	return "other"
+}
+
+func getColNameFromExpr(expr clause.Expr, ttype string) string {
+	sql := strings.Replace(strings.ToLower(expr.SQL), " ", "", -1)
+	if ttype == "in" {
+		fields := strings.Split(sql, "in")
+		return fields[0]
+	} else if ttype == "eq" {
+		fields := strings.Split(sql, "=")
+		return fields[0]
+	}
+	return ""
+}
+
+func getPrimaryKeysFromExpr(expr clause.Expr, ttype string) []string {
+	sql := strings.Replace(strings.ToLower(expr.SQL), " ", "", -1)
+
+	primaryKeys := make([]string, 0)
+
+	if ttype == "in" {
+		fields := strings.Split(sql, "in")
+		if len(fields) == 2 {
+			if fields[1][0] == '(' && fields[1][len(fields[1])-1] == ')' {
+				idStr := fields[1][1 : len(fields[1])-1]
+				ids := strings.Split(idStr, ",")
+				for _, id := range ids {
+					primaryKeys = append(primaryKeys, id)
+				}
+			} else if fields[1] == "(?)" {
+				for _, val := range expr.Vars {
+					primaryKeys = append(primaryKeys, fmt.Sprintf("%v", val))
+				}
+			}
+		}
+	} else if ttype == "eq" {
+		fields := strings.Split(sql, "=")
+		if len(fields) == 2 {
+			_, err := strconv.ParseInt(fields[1], 10, 64)
+			if err == nil {
+				primaryKeys = append(primaryKeys, fields[1])
+			} else if fields[1] == "?" {
+				for _, val := range expr.Vars {
+					primaryKeys = append(primaryKeys, fmt.Sprintf("%v", val))
+				}
+			}
+		}
+	}
+	return primaryKeys
+}
+
+func getObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface{}) {
 	primaryKeys = make([]string, 0)
 	values := make([]reflect.Value, 0)
 
@@ -117,4 +231,17 @@ func GetObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface
 		objects = append(objects, elemValue.Interface())
 	}
 	return primaryKeys, objects
+}
+
+func uniqueStringSlice(slice []string) []string {
+	retSlice := make([]string, 0)
+	mmap := make(map[string]struct{})
+	for _, str := range slice {
+		_, ok := mmap[str]
+		if !ok {
+			mmap[str] = struct{}{}
+			retSlice = append(retSlice, str)
+		}
+	}
+	return retSlice
 }

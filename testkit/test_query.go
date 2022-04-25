@@ -12,11 +12,12 @@ func testFirst(cache *cache.Gorm2Cache, db *gorm.DB) {
 
 	So(cache.GetHitCount(), ShouldEqual, 0)
 
-	var model *TestModel
+	var model = new(TestModel)
 
 	result := db.Where("id = ?", 1).First(model)
 	So(result.Error, ShouldBeNil)
 	So(cache.GetHitCount(), ShouldEqual, 0)
+	So(model.ID, ShouldEqual, 1)
 
 	result = db.Where("id = ?", 1).First(model)
 	So(result.Error, ShouldBeNil)

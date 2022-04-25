@@ -18,6 +18,7 @@ We provide 2 types of cache storage here:
 
 ```go
 import (
+    "context"
     "github.com/Pacific73/gorm-cache/cache"
     "github.com/go-redis/redis"
 )
@@ -47,20 +48,22 @@ func main() {
 
     var users []User
     
-    db.Where("id = ?", 1).Find(&users) // primary key cache not hit, users cached
-    db.Where("id = ?", 1).Find(&users) // primary key cache hit
+    db.WithContext(context.Background()).Where("id = ?", 1).Find(&users) // primary key cache not hit, users cached
+    db.WithContext(context.Background()).Where("id = ?", 1).Find(&users) // primary key cache hit
     
     type queryStruct struct {
         ID    int
         Value int
     }
     var dests []queryStruct
-    db.Select([]string{"a.id AS id", "b.value AS value"}).
+    db.WithContext(context.Background()).
+        Select([]string{"a.id AS id", "b.value AS value"}).
         Table("a").
         Joins("JOIN b ON b.id = a.id").
         Where("b.value > ?", 0).Scan(&dests) // search cache not hit, query result cached
     
-    db.Select([]string{"a.id AS id", "b.value AS value"}).
+    db.WithContext(context.Background()).
+        Select([]string{"a.id AS id", "b.value AS value"}).
     	Table("a").
     	Joins("JOIN b ON b.id = a.id").
     	Where("b.value > ?", 0).Scan(&dests) // search cache hit

@@ -15,7 +15,7 @@ func AfterRow(cache *Gorm2Cache) func(db *gorm.DB) {
 
 		if db.Error == nil {
 			// error is nil -> cache not hit, we cache newly retrieved data
-			_, objects := GetObjectsAfterLoad(db)
+			_, objects := getObjectsAfterLoad(db)
 
 			go func() {
 				// cache search data

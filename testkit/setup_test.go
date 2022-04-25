@@ -47,6 +47,7 @@ func TestMain(m *testing.M) {
 	log("test setup ...")
 
 	var err error
+	//logger.Default.LogMode(logger.Info)
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		username, password, ip, port, databaseName)
