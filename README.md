@@ -30,18 +30,20 @@ func main() {
         Addr: "localhost:6379",    
     })
     
-    cache, err := cache.NewGorm2Cache(&config.CacheConfig{
-        CacheLevel: config.CacheLevelAll,
-        CacheStorage: config.CacheStorageRedis,
-        RedisConfig: cache.NewRedisConfigWithClient(redisClient),
+    cache, _ := cache.NewGorm2Cache(&config.CacheConfig{
+        CacheLevel:           config.CacheLevelAll,
+        CacheStorage:         config.CacheStorageRedis,
+        RedisConfig:          cache.NewRedisConfigWithClient(redisClient),
         InvalidateWhenUpdate: true, // when you create/update/delete objects, invalidate cache
-        CacheTTL: 5000, // 5000 ms
-        CacheMaxItemCnt: 5, // if length of objects retrieved one single time 
-                           // exceeds this number, then don't cache
-        PrimaryCacheSize: 200, // 200 MB
-        SearchCacheSize: 200,
+        CacheTTL:             5000, // 5000 ms
+        CacheMaxItemCnt:      5, // if length of objects retrieved one single time 
+                                 // exceeds this number, then don't cache
+        PrimaryCacheSize:     200, // 200 MB
+        SearchCacheSize:      200,
     })
     // More options in `config.config.go`
+    
+    cache.AttachToDB(db)
 
     var users []User
     
@@ -65,7 +67,7 @@ func main() {
 }
 ```
 
-## Readme English Version 
+## Readme English Version (todo...)
 
 There're mainly 5 kinds of operations in gorm (gorm function names in brackets):
 
@@ -75,7 +77,7 @@ There're mainly 5 kinds of operations in gorm (gorm function names in brackets):
 4. Update (Update/Updates/UpdateColumn/UpdateColumns/Save)
 5. Row (Row/Rows/Scan)
 
-## Readme 中文版
+## Readme 中文版 (待补充...)
 
 在gorm中主要有5种操作（括号中是gorm中对应函数名）：
 
