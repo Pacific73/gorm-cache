@@ -24,24 +24,21 @@ type Gorm2Cache struct {
 }
 
 func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
-	c.db = db
 
-	c.db.Callback().Create().After("gorm:after_create").Register("gorm:cache:after_create", callback.AfterCreate(c))
+	db.Callback().Create().After("gorm:after_create").Register("gorm:cache:after_create", callback.AfterCreate(c))
 
-	c.db.Callback().Delete().After("gorm:after_delete").Register("gorm:cache:after_delete", callback.AfterDelete(c))
+	db.Callback().Delete().After("gorm:after_delete").Register("gorm:cache:after_delete", callback.AfterDelete(c))
 
-	c.db.Callback().Update().After("gorm:after_update").Register("gorm:cache:after_update", callback.AfterUpdate(c))
+	db.Callback().Update().After("gorm:after_update").Register("gorm:cache:after_update", callback.AfterUpdate(c))
 
-	c.db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", callback.BeforeQuery(c))
-	c.db.Callback().Query().After("gorm:after_query").Register("gorm:cache:after_query", callback.AfterQuery(c))
+	db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", callback.BeforeQuery(c))
+	db.Callback().Query().After("gorm:after_query").Register("gorm:cache:after_query", callback.AfterQuery(c))
 
-	c.db.Callback().Row().Before("gorm:row").Register("gorm:cache:before_row_query", callback.BeforeRow(c))
-	c.db.Callback().Row().After("gorm:row").Register("gorm:cache:after_row_query", callback.AfterRow(c))
-
-	c.init()
+	db.Callback().Row().Before("gorm:row").Register("gorm:cache:before_row_query", callback.BeforeRow(c))
+	db.Callback().Row().After("gorm:row").Register("gorm:cache:after_row_query", callback.AfterRow(c))
 }
 
-func (c *Gorm2Cache) init() {
+func (c *Gorm2Cache) Init() error {
 	if c.Config.CacheStorage == config.CacheStorageRedis {
 		if c.Config.RedisConfig == nil {
 			panic("please init redis config!")
@@ -52,9 +49,17 @@ func (c *Gorm2Cache) init() {
 
 	prefix := util.GormCachePrefix + ":" + c.InstanceId
 
-	c.primaryCache.Init(c.Config, prefix)
-	c.searchCache.Init(c.Config, prefix)
-
+	err := c.primaryCache.Init(c.Config, prefix)
+	if err != nil {
+		c.Logger.CtxError(context.Background(), "[Init] primary cache init error: %v", err)
+		return err
+	}
+	err = c.searchCache.Init(c.Config, prefix)
+	if err != nil {
+		c.Logger.CtxError(context.Background(), "[Init] search cache init error: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (c *Gorm2Cache) GetHitCount() int64 {
@@ -65,32 +70,37 @@ func (c *Gorm2Cache) ResetHitCount() {
 	atomic.StoreInt64(&c.hitCount, 0)
 }
 
-func (c *Gorm2Cache) ResetCache() {
-	c.searchCache.CleanCache()
-	c.primaryCache.CleanCache()
+func (c *Gorm2Cache) ResetCache() error {
+	ctx := context.Background()
+	err := c.searchCache.CleanCache(ctx)
+	if err != nil {
+		c.Logger.CtxError(ctx, "[ResetCache] reset search cache error: %v", err)
+		return err
+	}
+	return c.primaryCache.CleanCache(ctx)
 }
 
-func (c *Gorm2Cache) InvalidateSearchCache(ctx context.Context, tableName string) {
-	c.searchCache.DeleteKeysWithPrefix(ctx, util.GenSearchCachePrefix(c.InstanceId, tableName))
+func (c *Gorm2Cache) InvalidateSearchCache(ctx context.Context, tableName string) error {
+	return c.searchCache.DeleteKeysWithPrefix(ctx, util.GenSearchCachePrefix(c.InstanceId, tableName))
 }
 
-func (c *Gorm2Cache) InvalidatePrimaryCache(ctx context.Context, tableName string, primaryKey string) {
-	c.primaryCache.DeleteKey(ctx, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
+func (c *Gorm2Cache) InvalidatePrimaryCache(ctx context.Context, tableName string, primaryKey string) error {
+	return c.primaryCache.DeleteKey(ctx, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 }
 
-func (c *Gorm2Cache) BatchInvalidatePrimaryCache(ctx context.Context, tableName string, primaryKeys []string) {
+func (c *Gorm2Cache) BatchInvalidatePrimaryCache(ctx context.Context, tableName string, primaryKeys []string) error {
 	cacheKeys := make([]string, 0, len(primaryKeys))
 	for _, primaryKey := range primaryKeys {
 		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 	}
-	c.primaryCache.BatchDeleteKeys(ctx, cacheKeys)
+	return c.primaryCache.BatchDeleteKeys(ctx, cacheKeys)
 }
 
-func (c *Gorm2Cache) InvalidateAllPrimaryCache(ctx context.Context, tableName string) {
-	c.primaryCache.DeleteKeysWithPrefix(ctx, util.GenPrimaryCachePrefix(c.InstanceId, tableName))
+func (c *Gorm2Cache) InvalidateAllPrimaryCache(ctx context.Context, tableName string) error {
+	return c.primaryCache.DeleteKeysWithPrefix(ctx, util.GenPrimaryCachePrefix(c.InstanceId, tableName))
 }
 
-func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string, primaryKeys []string) bool {
+func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string, primaryKeys []string) (bool, error) {
 	cacheKeys := make([]string, 0, len(primaryKeys))
 	for _, primaryKey := range primaryKeys {
 		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
@@ -98,32 +108,33 @@ func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string
 	return c.primaryCache.BatchKeyExist(ctx, cacheKeys)
 }
 
-func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) bool {
+func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) (bool, error) {
 	cacheKey := util.GenSearchCacheKey(c.InstanceId, tableName, SQL, vars...)
 	return c.searchCache.KeyExists(ctx, cacheKey)
 }
 
-func (c *Gorm2Cache) BatchSetPrimaryKeyCache(ctx context.Context, tableName string, kvs []util.Kv) {
+func (c *Gorm2Cache) BatchSetPrimaryKeyCache(ctx context.Context, tableName string, kvs []util.Kv) error {
 	for _, kv := range kvs {
 		kv.Key = util.GenPrimaryCacheKey(c.InstanceId, tableName, kv.Key)
 	}
-	c.primaryCache.BatchSetKeys(ctx, kvs)
+	return c.primaryCache.BatchSetKeys(ctx, kvs)
 }
 
-func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tableName string, sql string, vars ...interface{}) {
+func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tableName string,
+	sql string, vars ...interface{}) error {
 	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
-	c.searchCache.SetKey(ctx, util.Kv{
+	return c.searchCache.SetKey(ctx, util.Kv{
 		Key:   key,
 		Value: cacheValue,
 	})
 }
 
-func (c *Gorm2Cache) GetSearchCache(ctx context.Context, tableName string, sql string, vars ...interface{}) string {
+func (c *Gorm2Cache) GetSearchCache(ctx context.Context, tableName string, sql string, vars ...interface{}) (string, error) {
 	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
 	return c.searchCache.GetValue(ctx, key)
 }
 
-func (c *Gorm2Cache) BatchGetPrimaryCache(ctx context.Context, tableName string, primaryKeys []string) []string {
+func (c *Gorm2Cache) BatchGetPrimaryCache(ctx context.Context, tableName string, primaryKeys []string) ([]string, error) {
 	cacheKeys := make([]string, 0, len(primaryKeys))
 	for _, primaryKey := range primaryKeys {
 		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
