@@ -1,19 +1,23 @@
-package callback
+package cache
 
 import (
-	"github.com/Pacific73/gorm-cache/cache"
 	"github.com/Pacific73/gorm-cache/util"
 	"gorm.io/gorm"
 )
 
-func BeforeQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
+func BeforeQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
 		tableName := db.Statement.Schema.Table
 		ctx := db.Statement.Context
 
 		if util.ShouldCache(tableName, cache.Config.Tables) {
 
-			keyExists := cache.SearchKeyExists(ctx, tableName, db.Statement.SQL.String(), db.Statement.Vars...)
+			keyExists, err := cache.SearchKeyExists(ctx, tableName, db.Statement.SQL.String(), db.Statement.Vars...)
+			if err != nil {
+				cache.Logger.CtxError(ctx, "[BeforeQuery] check search key exists for key %s error: %v",
+					db.Statement.SQL.String(), err)
+				return
+			}
 			if keyExists {
 				db.Error = util.SearchCacheHit
 				return
@@ -28,7 +32,11 @@ func BeforeQuery(cache *cache.Gorm2Cache) func(db *gorm.DB) {
 				return
 			}
 
-			allKeyExist := cache.BatchPrimaryKeyExists(ctx, tableName, primaryKeys)
+			allKeyExist, err := cache.BatchPrimaryKeyExists(ctx, tableName, primaryKeys)
+			if err != nil {
+				cache.Logger.CtxError(ctx, "[BeforeQuery] check primary key exists for key %v error: %v", primaryKeys, err)
+				return
+			}
 			if allKeyExist {
 				db.InstanceSet("gorm:cache:primary_keys", primaryKeys)
 				db.Error = util.PrimaryCacheHit

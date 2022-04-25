@@ -54,14 +54,17 @@ func (r *RedisLayer) initScripts() error {
 		r.logger.CtxError(context.Background(), "[initScripts] init script 1 error: %v", result.Err())
 		return result.Err()
 	}
-	r.batchExistSha = result.String()
+	r.batchExistSha = result.Val()
+	r.logger.CtxInfo(context.Background(), "[initScripts] init batch exist script sha1: %s", r.batchExistSha)
 
 	result = r.client.ScriptLoad(cleanCacheScript)
 	if result.Err() != nil {
 		r.logger.CtxError(context.Background(), "[initScripts] init script 2 error: %v", result.Err())
 		return result.Err()
 	}
-	r.cleanCacheSha = result.String()
+	r.cleanCacheSha = result.Val()
+	r.logger.CtxInfo(context.Background(), "[initScripts] init clean cache script sha1: %s", r.cleanCacheSha)
+	return nil
 }
 
 func (r *RedisLayer) CleanCache(ctx context.Context) error {
@@ -136,7 +139,7 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 	}
 	_, err := r.client.Pipelined(func(pipeliner redis.Pipeliner) error {
 		for _, kv := range kvs {
-			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(r.ttl))
+			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Microsecond)
 			if result.Err() != nil {
 				r.logger.CtxError(ctx, "[BatchSetKeys] set key %s error: %v", kv.Key, result.Err())
 				return result.Err()
@@ -148,5 +151,5 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 }
 
 func (r *RedisLayer) SetKey(ctx context.Context, kv util.Kv) error {
-	return r.client.Set(kv.Key, kv.Value, time.Duration(r.ttl)).Err()
+	return r.client.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Microsecond).Err()
 }

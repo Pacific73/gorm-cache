@@ -1,11 +1,16 @@
 package cache
 
 import (
+	"fmt"
+
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/go-redis/redis"
 )
 
 func NewGorm2Cache(cacheConfig *config.CacheConfig) (*Gorm2Cache, error) {
+	if cacheConfig == nil {
+		return nil, fmt.Errorf("you pass a nil config")
+	}
 	logger := config.DefaultLogger
 	if cacheConfig.DebugLogger != nil {
 		logger = cacheConfig.DebugLogger

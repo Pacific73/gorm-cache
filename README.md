@@ -1,11 +1,11 @@
 # gorm-cache (working in progress, don't use)
 
-`gorm-cache` aims to provide a look-aside, almost-no-code-modification cache solution to gorm v2 users. It only applys to situations where database table has only one single primary key.
+`gorm-cache` aims to provide a look-aside, almost-no-code-modification cache solution for gorm v2 users. It only applys to situations where database table has only one single primary key.
 
 We provide 2 types of cache storage here:
 
 1. Memory, where all cached data stores in memory of a single server
-2. Redis, where cached data stores in redis (if you have multiple servers running the same procedure, they don't share the same redis storage space)
+2. Redis, where cached data stores in Redis (if you have multiple servers running the same procedure, they don't share the same space in Redis)
 
 `gorm-cache` 旨在为gorm v2用户提供一个即插即用的旁路缓存解决方案。本缓存只适用于数据库表单主键时的场景。
 
@@ -47,8 +47,8 @@ func main() {
 
     var users []User
     
-    db.Where("id = ?", 1).Find(&users) // cache not hit, users cached
-    db.Where("id = ?", 1).Find(&users) // cache hit
+    db.Where("id = ?", 1).Find(&users) // primary key cache not hit, users cached
+    db.Where("id = ?", 1).Find(&users) // primary key cache hit
     
     type queryStruct struct {
         ID    int
@@ -58,12 +58,12 @@ func main() {
     db.Select([]string{"a.id AS id", "b.value AS value"}).
         Table("a").
         Joins("JOIN b ON b.id = a.id").
-        Where("b.value > ?", 0).Scan(&dests) // cache not hit, query result cached
+        Where("b.value > ?", 0).Scan(&dests) // search cache not hit, query result cached
     
     db.Select([]string{"a.id AS id", "b.value AS value"}).
     	Table("a").
     	Joins("JOIN b ON b.id = a.id").
-    	Where("b.value > ?", 0).Scan(&dests) // cache hit
+    	Where("b.value > ?", 0).Scan(&dests) // search cache hit
 }
 ```
 

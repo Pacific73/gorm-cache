@@ -6,7 +6,6 @@ import (
 
 	"github.com/Pacific73/gorm-cache/util"
 
-	"github.com/Pacific73/gorm-cache/callback"
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/Pacific73/gorm-cache/data_layer"
 	"gorm.io/gorm"
@@ -25,17 +24,17 @@ type Gorm2Cache struct {
 
 func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
 
-	db.Callback().Create().After("gorm:after_create").Register("gorm:cache:after_create", callback.AfterCreate(c))
+	db.Callback().Create().After("gorm:after_create").Register("gorm:cache:after_create", AfterCreate(c))
 
-	db.Callback().Delete().After("gorm:after_delete").Register("gorm:cache:after_delete", callback.AfterDelete(c))
+	db.Callback().Delete().After("gorm:after_delete").Register("gorm:cache:after_delete", AfterDelete(c))
 
-	db.Callback().Update().After("gorm:after_update").Register("gorm:cache:after_update", callback.AfterUpdate(c))
+	db.Callback().Update().After("gorm:after_update").Register("gorm:cache:after_update", AfterUpdate(c))
 
-	db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", callback.BeforeQuery(c))
-	db.Callback().Query().After("gorm:after_query").Register("gorm:cache:after_query", callback.AfterQuery(c))
+	db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", BeforeQuery(c))
+	db.Callback().Query().After("gorm:after_query").Register("gorm:cache:after_query", AfterQuery(c))
 
-	db.Callback().Row().Before("gorm:row").Register("gorm:cache:before_row_query", callback.BeforeRow(c))
-	db.Callback().Row().After("gorm:row").Register("gorm:cache:after_row_query", callback.AfterRow(c))
+	db.Callback().Row().Before("gorm:row").Register("gorm:cache:before_row_query", BeforeRow(c))
+	db.Callback().Row().After("gorm:row").Register("gorm:cache:after_row_query", AfterRow(c))
 }
 
 func (c *Gorm2Cache) Init() error {
@@ -48,6 +47,15 @@ func (c *Gorm2Cache) Init() error {
 	c.InstanceId = util.GenInstanceId()
 
 	prefix := util.GormCachePrefix + ":" + c.InstanceId
+
+	if c.Config.CacheStorage == config.CacheStorageRedis {
+		c.primaryCache = &data_layer.RedisLayer{}
+		c.searchCache = &data_layer.RedisLayer{}
+	}
+
+	if c.Config.DebugLogger == nil {
+		c.Config.DebugLogger = config.DefaultLogger
+	}
 
 	err := c.primaryCache.Init(c.Config, prefix)
 	if err != nil {
@@ -68,6 +76,10 @@ func (c *Gorm2Cache) GetHitCount() int64 {
 
 func (c *Gorm2Cache) ResetHitCount() {
 	atomic.StoreInt64(&c.hitCount, 0)
+}
+
+func (c *Gorm2Cache) IncrHitCount() {
+	atomic.AddInt64(&c.hitCount, 1)
 }
 
 func (c *Gorm2Cache) ResetCache() error {
