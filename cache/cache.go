@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 
 	"github.com/Pacific73/gorm-cache/util"
@@ -121,6 +122,7 @@ func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string
 
 func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) (bool, error) {
 	cacheKey := util.GenSearchCacheKey(c.InstanceId, tableName, SQL, vars...)
+	fmt.Println("check key: ", cacheKey)
 	return c.searchCache.KeyExists(ctx, cacheKey)
 }
 
@@ -142,6 +144,7 @@ func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tabl
 
 func (c *Gorm2Cache) GetSearchCache(ctx context.Context, tableName string, sql string, vars ...interface{}) (string, error) {
 	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
+	fmt.Println("get key: ", key)
 	return c.searchCache.GetValue(ctx, key)
 }
 

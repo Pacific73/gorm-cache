@@ -40,7 +40,7 @@ var (
 )
 
 var (
-	testSize = 200
+	testSize = 200 // minimum 200
 )
 
 func TestMain(m *testing.M) {

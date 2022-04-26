@@ -82,9 +82,6 @@ func (r *RedisLayer) BatchKeyExist(ctx context.Context, keys []string) (bool, er
 		r.logger.CtxError(ctx, "[BatchKeyExist] eval script error: %v", result.Err())
 		return false, result.Err()
 	}
-	//fmt.Printf("%+v\n", result)
-	//res, _ := result.Result()
-	//fmt.Printf("%+v\n", res)
 	return result.Bool()
 }
 

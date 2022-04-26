@@ -13,6 +13,10 @@ func BeforeRow(cache *Gorm2Cache) func(db *gorm.DB) {
 		tableName := db.Statement.Schema.Table
 		ctx := db.Statement.Context
 
+		sql := db.Statement.SQL.String()
+		db.InstanceSet("gorm:cache:sql", sql)
+		db.InstanceSet("gorm:cache:vars", db.Statement.Vars)
+
 		if util.ShouldCache(tableName, cache.Config.Tables) {
 
 			if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlySearch {

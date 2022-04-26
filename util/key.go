@@ -30,7 +30,7 @@ func GenSearchCacheKey(instanceId string, tableName string, sql string, vars ...
 	buf := strings.Builder{}
 	buf.WriteString(sql)
 	for _, v := range vars {
-		buf.WriteString(fmt.Sprintf("%v", v))
+		buf.WriteString(fmt.Sprintf(":%v", v))
 	}
 	return fmt.Sprintf("%s:%s:s:%s:%s", GormCachePrefix, instanceId, tableName, buf.String())
 }

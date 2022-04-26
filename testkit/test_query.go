@@ -18,6 +18,7 @@ func testFirst(cache *cache.Gorm2Cache, db *gorm.DB) {
 	So(cache.GetHitCount(), ShouldEqual, 0)
 	So(model.ID, ShouldEqual, 1)
 
+	model = new(TestModel)
 	result = db.Where("id = ?", 1).First(model)
 	So(result.Error, ShouldBeNil)
 	So(cache.GetHitCount(), ShouldEqual, 1)
@@ -81,4 +82,21 @@ func testPrimaryFind(cache *cache.Gorm2Cache, db *gorm.DB) {
 	result = db.Where("id IN (?)", []int64{1, 4}).Find(&models)
 	So(result.Error, ShouldBeNil)
 	So(cache.GetHitCount(), ShouldEqual, 1)
+}
+
+func testSearchFind(cache *cache.Gorm2Cache, db *gorm.DB) {
+	err := cache.ResetCache()
+	So(err, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+
+	models := make([]*TestModel, 0)
+	result := db.Where("id >= ?", 1).Where("id <= ?", 10).Find(&models)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+
+	models = make([]*TestModel, 0)
+	result = db.Where("id >= ?", 1).Where("id <= ?", 10).Find(&models)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 1)
+	So(len(models), ShouldEqual, 10)
 }

@@ -22,6 +22,10 @@ func TestPrimaryCacheFunctionality(t *testing.T) {
 
 func TestSearchCacheFunctionality(t *testing.T) {
 	Convey("test search cache functionality", t, func() {
+		//testFirst(searchCache, searchDB)
 
+		//testFind(searchCache, searchDB)
+
+		testSearchFind(searchCache, searchDB)
 	})
 }

@@ -18,6 +18,10 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
 		tableName := db.Statement.Schema.Table
 		ctx := db.Statement.Context
+		sqlObj, _ := db.InstanceGet("gorm:cache:sql")
+		sql := sqlObj.(string)
+		varObj, _ := db.InstanceGet("gorm:cache:vars")
+		vars := varObj.([]interface{})
 
 		if db.Error == nil {
 			// error is nil -> cache not hit, we cache newly retrieved data
@@ -31,18 +35,14 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 
 				if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlySearch {
 					// cache search data
-					sqlObj, _ := db.InstanceGet("gorm:cache:sql")
-					sql := sqlObj.(string)
-					varObj, _ := db.InstanceGet("gorm:cache:vars")
-					vars := varObj.([]interface{})
 
 					cache.Logger.CtxInfo(ctx, "[AfterQuery] start to set search cache for sql: %s", sql)
-					cacheBytes, err := json.Marshal(objects)
+					cacheBytes, err := json.Marshal(db.Statement.Dest)
 					if err != nil {
 						cache.Logger.CtxError(ctx, "[AfterQuery] cannot marshal cache for sql: %s, not cached", sql)
 						return
 					}
-					err = cache.SetSearchCache(ctx, string(cacheBytes), tableName, sql, vars)
+					err = cache.SetSearchCache(ctx, string(cacheBytes), tableName, sql, vars...)
 					if err != nil {
 						cache.Logger.CtxError(ctx, "[AfterQuery] set search cache for sql: %s error: %v", sql, err)
 						return
@@ -86,15 +86,17 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 
 		if errors.Is(db.Error, util.SearchCacheHit) {
 			// search cache hit
-			cacheValue, err := cache.GetSearchCache(ctx, tableName, db.Statement.SQL.String(), db.Statement.Vars...)
+
+			cacheValue, err := cache.GetSearchCache(ctx, tableName, sql, vars...)
 			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] get cache value for sql %s error: %v", db.Statement.SQL.String(), err)
+				cache.Logger.CtxError(ctx, "[AfterQuery] get cache value for sql %s error: %v", sql, err)
 				db.Error = util.ErrCacheLoadFailed
 				return
 			}
+			cache.Logger.CtxInfo(ctx, "[AfterQuery] get value: %s", cacheValue)
 			err = json.Unmarshal([]byte(cacheValue), db.Statement.Dest)
 			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal search cache error")
+				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal search cache error: %v", err)
 				db.Error = util.ErrCacheUnmarshal
 				return
 			}
