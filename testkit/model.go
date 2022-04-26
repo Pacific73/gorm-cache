@@ -12,6 +12,10 @@ type TestModel struct {
 	Value8 int64 `gorm:"column:value8"`
 }
 
+const (
+	TestModelTableName = "gorm_cache_model"
+)
+
 func (m *TestModel) TableName() string {
-	return "gorm_cache_model"
+	return TestModelTableName
 }

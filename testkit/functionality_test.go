@@ -8,8 +8,20 @@ import (
 
 func TestPrimaryCacheFunctionality(t *testing.T) {
 	Convey("test primary cache functionality", t, func() {
-		//testFirst(primaryCache, primaryDB)
-		testFind(allCache, allDB)
-	})
+		testFirst(primaryCache, primaryDB)
 
+		testFind(primaryCache, primaryDB)
+
+		testPrimaryFind(primaryCache, primaryDB)
+
+		testPrimaryUpdate(primaryCache, primaryDB)
+
+		testPrimaryDelete(primaryCache, primaryDB)
+	})
+}
+
+func TestSearchCacheFunctionality(t *testing.T) {
+	Convey("test search cache functionality", t, func() {
+
+	})
 }

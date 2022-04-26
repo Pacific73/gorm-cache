@@ -11,7 +11,7 @@ func AfterCreate(cache *Gorm2Cache) func(db *gorm.DB) {
 		tableName := db.Statement.Schema.Table
 		ctx := db.Statement.Context
 
-		if cache.Config.InvalidateWhenUpdate && util.ShouldCache(tableName, cache.Config.Tables) {
+		if db.Error == nil && cache.Config.InvalidateWhenUpdate && util.ShouldCache(tableName, cache.Config.Tables) {
 			if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlySearch {
 				// We invalidate search cache here,
 				// because any newly created objects may cause search cache results to be outdated and invalid.

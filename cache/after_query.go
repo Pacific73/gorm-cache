@@ -123,7 +123,7 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 			destKind := reflect.Indirect(reflect.ValueOf(db.Statement.Dest)).Kind()
 			if destKind == reflect.Struct && len(cacheValues) == 1 {
 				finalValue = cacheValues[0]
-			} else if (destKind == reflect.Array || destKind == reflect.Slice) && len(cacheValues) > 1 {
+			} else if (destKind == reflect.Array || destKind == reflect.Slice) && len(cacheValues) >= 1 {
 				finalValue = "[" + strings.Join(cacheValues, ",") + "]"
 			}
 			if len(finalValue) == 0 {

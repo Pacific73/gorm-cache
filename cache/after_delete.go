@@ -15,7 +15,7 @@ func AfterDelete(cache *Gorm2Cache) func(db *gorm.DB) {
 		tableName := db.Statement.Table
 		ctx := db.Statement.Context
 
-		if cache.Config.InvalidateWhenUpdate && util.ShouldCache(tableName, cache.Config.Tables) {
+		if db.Error == nil && cache.Config.InvalidateWhenUpdate && util.ShouldCache(tableName, cache.Config.Tables) {
 			var wg sync.WaitGroup
 			wg.Add(2)
 
@@ -24,15 +24,27 @@ func AfterDelete(cache *Gorm2Cache) func(db *gorm.DB) {
 
 				if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlyPrimary {
 					primaryKeys := getPrimaryKeysFromWhereClause(db)
-					cache.Logger.CtxInfo(ctx, "[AfterDelete] now start to invalidate cache for primary keys: %v",
-						primaryKeys)
-					err := cache.BatchInvalidatePrimaryCache(ctx, tableName, primaryKeys)
-					if err != nil {
-						cache.Logger.CtxError(ctx, "[AfterDelete] invalidating cache for primary keys: %v error: %v",
-							primaryKeys, err)
-						return
+					if len(primaryKeys) > 0 {
+						cache.Logger.CtxInfo(ctx, "[AfterDelete] now start to invalidate cache for primary keys: %v",
+							primaryKeys)
+						err := cache.BatchInvalidatePrimaryCache(ctx, tableName, primaryKeys)
+						if err != nil {
+							cache.Logger.CtxError(ctx, "[AfterDelete] invalidating cache for primary keys: %v error: %v",
+								primaryKeys, err)
+							return
+						}
+						cache.Logger.CtxInfo(ctx, "[AfterDelete] invalidating cache for primary keys: %v finished.", primaryKeys)
+					} else {
+						cache.Logger.CtxInfo(ctx, "[AfterDelete] now start to invalidate all primary cache for table: %s", tableName)
+						err := cache.InvalidateAllPrimaryCache(ctx, tableName)
+						if err != nil {
+							cache.Logger.CtxError(ctx, "[AfterDelete] invalidating primary cache for table %s error: %v",
+								tableName, err)
+							return
+						}
+						cache.Logger.CtxInfo(ctx, "[AfterDelete] invalidating all primary cache for table: %s finished.", tableName)
 					}
-					cache.Logger.CtxInfo(ctx, "[AfterDelete] invalidating cache for primary keys: %v finished.", primaryKeys)
+
 				}
 			}()
 

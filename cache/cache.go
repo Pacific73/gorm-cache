@@ -24,17 +24,15 @@ type Gorm2Cache struct {
 
 func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
 
-	db.Callback().Create().After("gorm:after_create").Register("gorm:cache:after_create", AfterCreate(c))
+	_ = db.Callback().Create().After("*").Register("gorm:cache:after_create", AfterCreate(c))
+	_ = db.Callback().Delete().After("*").Register("gorm:cache:after_delete", AfterDelete(c))
+	_ = db.Callback().Update().After("*").Register("gorm:cache:after_update", AfterUpdate(c))
 
-	db.Callback().Delete().After("gorm:after_delete").Register("gorm:cache:after_delete", AfterDelete(c))
+	_ = db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", BeforeQuery(c))
+	_ = db.Callback().Query().After("*").Register("gorm:cache:after_query", AfterQuery(c))
 
-	db.Callback().Update().After("gorm:after_update").Register("gorm:cache:after_update", AfterUpdate(c))
-
-	db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", BeforeQuery(c))
-	db.Callback().Query().After("gorm:after_query").Register("gorm:cache:after_query", AfterQuery(c))
-
-	db.Callback().Row().Before("gorm:row").Register("gorm:cache:before_row_query", BeforeRow(c))
-	db.Callback().Row().After("gorm:row").Register("gorm:cache:after_row_query", AfterRow(c))
+	_ = db.Callback().Row().Before("gorm:row").Register("gorm:cache:before_row_query", BeforeRow(c))
+	_ = db.Callback().Row().After("*").Register("gorm:cache:after_row_query", AfterRow(c))
 }
 
 func (c *Gorm2Cache) Init() error {
@@ -83,6 +81,7 @@ func (c *Gorm2Cache) IncrHitCount() {
 }
 
 func (c *Gorm2Cache) ResetCache() error {
+	c.ResetHitCount()
 	ctx := context.Background()
 	err := c.searchCache.CleanCache(ctx)
 	if err != nil {

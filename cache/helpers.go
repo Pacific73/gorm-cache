@@ -25,6 +25,9 @@ func getPrimaryKeysFromWhereClause(db *gorm.DB) []string {
 		return nil
 	}
 	dbName := ""
+	if db.Statement.Schema == nil {
+		return nil
+	}
 	for _, field := range db.Statement.Schema.Fields {
 		if field.PrimaryKey {
 			dbName = field.DBName

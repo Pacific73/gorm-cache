@@ -2,7 +2,6 @@ package data_layer
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/Pacific73/gorm-cache/config"
@@ -106,7 +105,6 @@ func (r *RedisLayer) GetValue(ctx context.Context, key string) (string, error) {
 }
 
 func (r *RedisLayer) BatchGetValues(ctx context.Context, keys []string) ([]string, error) {
-	fmt.Println("batch get keys:", keys)
 	result := r.client.MGet(keys...)
 	if result.Err() != nil {
 		r.logger.CtxError(ctx, "[BatchGetValues] mget error: %v", result.Err())
