@@ -177,7 +177,17 @@ func getPrimaryKeysFromExpr(expr clause.Expr, ttype string) []string {
 				idStr := fields[1][1 : len(fields[1])-1]
 				ids := strings.Split(idStr, ",")
 				for _, id := range ids {
-					primaryKeys = append(primaryKeys, id)
+					if id == "?" {
+						for _, vvar := range expr.Vars {
+							keys := extractStringsFromVar(vvar)
+							primaryKeys = append(primaryKeys, keys...)
+						}
+						break
+					}
+					number, err := strconv.ParseInt(id, 10, 64)
+					if err == nil {
+						primaryKeys = append(primaryKeys, strconv.FormatInt(number, 10))
+					}
 				}
 			} else if fields[1] == "(?)" {
 				for _, val := range expr.Vars {
@@ -244,4 +254,23 @@ func uniqueStringSlice(slice []string) []string {
 		}
 	}
 	return retSlice
+}
+
+func extractStringsFromVar(v interface{}) []string {
+	noPtrValue := reflect.Indirect(reflect.ValueOf(v))
+	switch noPtrValue.Kind() {
+	case reflect.Slice, reflect.Array:
+		ans := make([]string, 0)
+		for i := 0; i < noPtrValue.Len(); i++ {
+			obj := reflect.Indirect(noPtrValue.Index(i))
+			ans = append(ans, fmt.Sprintf("%v", obj))
+		}
+		return ans
+	case reflect.String:
+		return []string{fmt.Sprintf("%s", noPtrValue.Interface())}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8,
+		reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return []string{fmt.Sprintf("%d", noPtrValue.Interface())}
+	}
+	return nil
 }

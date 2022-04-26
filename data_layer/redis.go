@@ -144,7 +144,7 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 		}
 		return r.client.MSet(spreads...).Err()
 	}
-	results, err := r.client.Pipelined(func(pipeliner redis.Pipeliner) error {
+	_, err := r.client.Pipelined(func(pipeliner redis.Pipeliner) error {
 		for _, kv := range kvs {
 			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Millisecond)
 			if result.Err() != nil {
@@ -154,10 +154,6 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 		}
 		return nil
 	})
-	for _, result := range results {
-		fmt.Printf("%+v\n", result)
-	}
-
 	return err
 }
 
