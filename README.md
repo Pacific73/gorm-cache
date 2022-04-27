@@ -39,8 +39,6 @@ func main() {
         CacheTTL:             5000, // 5000 ms
         CacheMaxItemCnt:      5, // if length of objects retrieved one single time 
                                  // exceeds this number, then don't cache
-        PrimaryCacheSize:     200, // 200 MB
-        SearchCacheSize:      200,
     })
     // More options in `config.config.go`
     
@@ -48,46 +46,15 @@ func main() {
 
     var users []User
     
-    db.WithContext(context.Background()).Where("id = ?", 1).Find(&users) // primary key cache not hit, users cached
-    db.WithContext(context.Background()).Where("id = ?", 1).Find(&users) // primary key cache hit
+    db.Where("value > ?", 123).Find(&users) // search cache not hit, objects cached
+    db.Where("value > ?", 123).Find(&users) // search cache hit
     
-    type queryStruct struct {
-        ID    int
-        Value int
-    }
-    var dests []queryStruct
-    rows, _ := db.WithContext(context.Background()).
-        Select([]string{"a.id AS id", "b.value AS value"}).
-        Table("a").
-        Joins("JOIN b ON b.id = a.id").
-        Where("b.value > ?", 0).Rows() // search cache not hit, query result cached
-    if rows.Next() {
-         _ = db.ScanRows(rows, &dests)
-    }
-    
-    rows, _ = db.WithContext(context.Background()).
-        Select([]string{"a.id AS id", "b.value AS value"}).
-    	Table("a").
-    	Joins("JOIN b ON b.id = a.id").
-    	Where("b.value > ?", 0).Rows() // search cache hit
-    if rows.Next() {
-        _ = db.ScanRows(rows, &dests)
-    }
-    
+    db.Where("id IN (?)", []int{1, 2, 3}).Find(&users) // primary key not hit, users cached
+    db.Where("id IN (?)", []int{1, 3}).Find(&users) // primary key cache hit
 }
 ```
 
-## Readme English Version (todo...)
-
 There're mainly 5 kinds of operations in gorm (gorm function names in brackets):
-
-1. Query (First/Take/Last/Find/FindInBatches/FirstOrInit/FirstOrCreate/Count/Pluck)
-2. Create (Create/CreateInBatches/Save)
-3. Delete (Delete)
-4. Update (Update/Updates/UpdateColumn/UpdateColumns/Save)
-5. Row (Row/Rows/Scan)
-
-## Readme 中文版 (待补充...)
 
 在gorm中主要有5种操作（括号中是gorm中对应函数名）：
 
@@ -96,5 +63,9 @@ There're mainly 5 kinds of operations in gorm (gorm function names in brackets):
 3. Delete (Delete)
 4. Update (Update/Updates/UpdateColumn/UpdateColumns/Save)
 5. Row (Row/Rows/Scan)
+
+We don't support caching in Row operations.
+
+我们不支持Row操作的缓存。
 
 

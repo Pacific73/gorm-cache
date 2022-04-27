@@ -25,10 +25,10 @@ type CacheConfig struct {
 	// then we choose not to cache for this query. 0 represents caching all queries.
 	CacheMaxItemCnt int64
 
-	// PrimaryCacheSize cache maximal size for primary cache, in MB
+	// PrimaryCacheSize cache maximal size for primary cache, in MB (only works in MEMORY storage)
 	PrimaryCacheSize int
 
-	// SearchCacheSize cache maximal size for search cache, in MB
+	// SearchCacheSize cache maximal size for search cache, in MB (only works in MEMORY storage)
 	SearchCacheSize int
 
 	// DebugMode indicate if we're in debug mode (will print access log)
