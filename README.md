@@ -56,17 +56,24 @@ func main() {
         Value int
     }
     var dests []queryStruct
-    db.WithContext(context.Background()).
+    rows, _ := db.WithContext(context.Background()).
         Select([]string{"a.id AS id", "b.value AS value"}).
         Table("a").
         Joins("JOIN b ON b.id = a.id").
-        Where("b.value > ?", 0).Scan(&dests) // search cache not hit, query result cached
+        Where("b.value > ?", 0).Rows() // search cache not hit, query result cached
+    if rows.Next() {
+         _ = db.ScanRows(rows, &dests)
+    }
     
-    db.WithContext(context.Background()).
+    rows, _ = db.WithContext(context.Background()).
         Select([]string{"a.id AS id", "b.value AS value"}).
     	Table("a").
     	Joins("JOIN b ON b.id = a.id").
-    	Where("b.value > ?", 0).Scan(&dests) // search cache hit
+    	Where("b.value > ?", 0).Rows() // search cache hit
+    if rows.Next() {
+        _ = db.ScanRows(rows, &dests)
+    }
+    
 }
 ```
 

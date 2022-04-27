@@ -41,3 +41,25 @@ func testPrimaryUpdate(cache *cache.Gorm2Cache, db *gorm.DB) {
 	So(result.Error, ShouldBeNil)
 	So(cache.GetHitCount(), ShouldEqual, 1)
 }
+
+func testSearchUpdate(cache *cache.Gorm2Cache, db *gorm.DB) {
+	err := cache.ResetCache()
+	So(err, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+
+	models := make([]TestModel, 0)
+	result := db.Where("id IN (?)", []int{51, 52}).Find(&models)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+	So(len(models), ShouldEqual, 2)
+
+	result = db.Table(TestModelTableName).
+		Where("id IN (?)", []int{53}).UpdateColumn("value5", 5)
+	So(result.Error, ShouldBeNil)
+
+	models = make([]TestModel, 0)
+	result = db.Where("id IN (?)", []int{51, 52}).Find(&models)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+	So(len(models), ShouldEqual, 2)
+}

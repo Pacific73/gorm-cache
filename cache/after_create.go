@@ -8,7 +8,12 @@ import (
 
 func AfterCreate(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
-		tableName := db.Statement.Schema.Table
+		tableName := ""
+		if db.Statement.Schema != nil {
+			tableName = db.Statement.Schema.Table
+		} else {
+			tableName = db.Statement.Table
+		}
 		ctx := db.Statement.Context
 
 		if db.Error == nil && cache.Config.InvalidateWhenUpdate && util.ShouldCache(tableName, cache.Config.Tables) {

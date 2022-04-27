@@ -98,7 +98,7 @@ func TestMain(m *testing.M) {
 		CacheMaxItemCnt:      5000,
 		PrimaryCacheSize:     10,
 		SearchCacheSize:      10,
-		DebugMode:            true,
+		DebugMode:            false,
 	})
 	if err != nil {
 		log("setup search cache error: %v", err)
@@ -114,7 +114,7 @@ func TestMain(m *testing.M) {
 		CacheMaxItemCnt:      5000,
 		PrimaryCacheSize:     10,
 		SearchCacheSize:      10,
-		DebugMode:            true,
+		DebugMode:            false,
 	})
 	if err != nil {
 		log("setup primary cache error: %v", err)
@@ -130,7 +130,7 @@ func TestMain(m *testing.M) {
 		CacheMaxItemCnt:      5000,
 		PrimaryCacheSize:     10,
 		SearchCacheSize:      10,
-		DebugMode:            true,
+		DebugMode:            false,
 	})
 	if err != nil {
 		log("setup all cache error: %v", err)

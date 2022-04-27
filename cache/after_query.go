@@ -3,6 +3,7 @@ package cache
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -16,7 +17,12 @@ import (
 
 func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
-		tableName := db.Statement.Schema.Table
+		tableName := ""
+		if db.Statement.Schema != nil {
+			tableName = db.Statement.Schema.Table
+		} else {
+			tableName = db.Statement.Table
+		}
 		ctx := db.Statement.Context
 		sqlObj, _ := db.InstanceGet("gorm:cache:sql")
 		sql := sqlObj.(string)
@@ -42,6 +48,7 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 						cache.Logger.CtxError(ctx, "[AfterQuery] cannot marshal cache for sql: %s, not cached", sql)
 						return
 					}
+					cache.Logger.CtxInfo(ctx, "[AfterQuery] set cache: %v", string(cacheBytes))
 					err = cache.SetSearchCache(ctx, string(cacheBytes), tableName, sql, vars...)
 					if err != nil {
 						cache.Logger.CtxError(ctx, "[AfterQuery] set search cache for sql: %s error: %v", sql, err)
@@ -55,9 +62,9 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 				defer wg.Done()
 
 				if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlyPrimary {
-
 					// cache primary cache data
 					if len(primaryKeys) != len(objects) {
+						fmt.Println(primaryKeys, objects)
 						return
 					}
 					kvs := make([]util.Kv, 0, len(objects))

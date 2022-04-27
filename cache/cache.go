@@ -2,7 +2,6 @@ package cache
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/Pacific73/gorm-cache/util"
@@ -31,9 +30,6 @@ func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
 
 	_ = db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", BeforeQuery(c))
 	_ = db.Callback().Query().After("*").Register("gorm:cache:after_query", AfterQuery(c))
-
-	_ = db.Callback().Row().Before("gorm:row").Register("gorm:cache:before_row_query", BeforeRow(c))
-	_ = db.Callback().Row().After("*").Register("gorm:cache:after_row_query", AfterRow(c))
 }
 
 func (c *Gorm2Cache) Init() error {
@@ -53,8 +49,10 @@ func (c *Gorm2Cache) Init() error {
 	}
 
 	if c.Config.DebugLogger == nil {
-		c.Config.DebugLogger = config.DefaultLogger
+		c.Config.DebugLogger = &config.DefaultLoggerImpl{}
 	}
+	c.Logger = c.Config.DebugLogger
+	c.Logger.SetIsDebug(c.Config.DebugMode)
 
 	err := c.primaryCache.Init(c.Config, prefix)
 	if err != nil {
@@ -122,7 +120,6 @@ func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string
 
 func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) (bool, error) {
 	cacheKey := util.GenSearchCacheKey(c.InstanceId, tableName, SQL, vars...)
-	fmt.Println("check key: ", cacheKey)
 	return c.searchCache.KeyExists(ctx, cacheKey)
 }
 
@@ -144,7 +141,6 @@ func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tabl
 
 func (c *Gorm2Cache) GetSearchCache(ctx context.Context, tableName string, sql string, vars ...interface{}) (string, error) {
 	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
-	fmt.Println("get key: ", key)
 	return c.searchCache.GetValue(ctx, key)
 }
 

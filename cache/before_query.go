@@ -10,7 +10,12 @@ import (
 func BeforeQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
 		callbacks.BuildQuerySQL(db)
-		tableName := db.Statement.Schema.Table
+		tableName := ""
+		if db.Statement.Schema != nil {
+			tableName = db.Statement.Schema.Table
+		} else {
+			tableName = db.Statement.Table
+		}
 		ctx := db.Statement.Context
 
 		sql := db.Statement.SQL.String()

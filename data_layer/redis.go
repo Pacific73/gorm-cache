@@ -28,6 +28,7 @@ func (r *RedisLayer) Init(conf *config.CacheConfig, prefix string) error {
 
 	r.ttl = conf.CacheTTL
 	r.logger = conf.DebugLogger
+	r.logger.SetIsDebug(conf.DebugMode)
 	r.keyPrefix = prefix
 	return r.initScripts()
 }

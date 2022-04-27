@@ -11,13 +11,8 @@ func NewGorm2Cache(cacheConfig *config.CacheConfig) (*Gorm2Cache, error) {
 	if cacheConfig == nil {
 		return nil, fmt.Errorf("you pass a nil config")
 	}
-	logger := config.DefaultLogger
-	if cacheConfig.DebugLogger != nil {
-		logger = cacheConfig.DebugLogger
-	}
 	cache := &Gorm2Cache{
 		Config: cacheConfig,
-		Logger: logger,
 	}
 	err := cache.Init()
 	if err != nil {

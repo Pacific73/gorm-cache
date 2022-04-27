@@ -229,17 +229,24 @@ func getObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface
 		values = append(values, destValue)
 	}
 
-	objects = make([]interface{}, 0, len(values))
-	for _, elemValue := range values {
+	var valueOf func(context.Context, reflect.Value) (value interface{}, zero bool) = nil
+	if db.Statement.Schema != nil {
 		for _, field := range db.Statement.Schema.Fields {
 			if field.PrimaryKey {
-				primaryKey, isZero := field.ValueOf(context.Background(), elemValue)
-				if isZero {
-					continue
-				}
-				primaryKeys = append(primaryKeys, fmt.Sprintf("%v", primaryKey))
+				valueOf = field.ValueOf
 				break
 			}
+		}
+	}
+
+	objects = make([]interface{}, 0, len(values))
+	for _, elemValue := range values {
+		if valueOf != nil {
+			primaryKey, isZero := valueOf(context.Background(), elemValue)
+			if isZero {
+				continue
+			}
+			primaryKeys = append(primaryKeys, fmt.Sprintf("%v", primaryKey))
 		}
 		objects = append(objects, elemValue.Interface())
 	}

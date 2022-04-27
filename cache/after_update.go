@@ -12,9 +12,13 @@ import (
 
 func AfterUpdate(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
-		tableName := db.Statement.Table
+		tableName := ""
+		if db.Statement.Schema != nil {
+			tableName = db.Statement.Schema.Table
+		} else {
+			tableName = db.Statement.Table
+		}
 		ctx := db.Statement.Context
-		cache.Logger.CtxInfo(ctx, "here")
 
 		if db.Error == nil && cache.Config.InvalidateWhenUpdate && util.ShouldCache(tableName, cache.Config.Tables) {
 			var wg sync.WaitGroup

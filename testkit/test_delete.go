@@ -50,3 +50,24 @@ func testPrimaryDelete(cache *cache.Gorm2Cache, db *gorm.DB) {
 	So(result.Error, ShouldBeNil)
 	So(cache.GetHitCount(), ShouldEqual, 4)
 }
+
+func testSearchDelete(cache *cache.Gorm2Cache, db *gorm.DB) {
+	err := cache.ResetCache()
+	So(err, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+
+	models := make([]TestModel, 0)
+	result := db.Where("id IN (?)", []int{51, 52}).Find(&models)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+	So(len(models), ShouldEqual, 2)
+
+	result = db.Delete(&TestModel{ID: 53})
+	So(result.Error, ShouldBeNil)
+
+	models = make([]TestModel, 0)
+	result = db.Where("id IN (?)", []int{51, 52}).Find(&models)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+	So(len(models), ShouldEqual, 2)
+}
