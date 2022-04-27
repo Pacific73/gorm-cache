@@ -16,10 +16,9 @@ type Gorm2Cache struct {
 	Logger     config.LoggerInterface
 	InstanceId string
 
-	db           *gorm.DB
-	primaryCache data_layer.DataLayerInterface
-	searchCache  data_layer.DataLayerInterface
-	hitCount     int64
+	db       *gorm.DB
+	cache    data_layer.DataLayerInterface
+	hitCount int64
 }
 
 func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
@@ -44,8 +43,9 @@ func (c *Gorm2Cache) Init() error {
 	prefix := util.GormCachePrefix + ":" + c.InstanceId
 
 	if c.Config.CacheStorage == config.CacheStorageRedis {
-		c.primaryCache = &data_layer.RedisLayer{}
-		c.searchCache = &data_layer.RedisLayer{}
+		c.cache = &data_layer.RedisLayer{}
+	} else if c.Config.CacheStorage == config.CacheStorageMemory {
+		c.cache = &data_layer.MemoryLayer{}
 	}
 
 	if c.Config.DebugLogger == nil {
@@ -54,12 +54,12 @@ func (c *Gorm2Cache) Init() error {
 	c.Logger = c.Config.DebugLogger
 	c.Logger.SetIsDebug(c.Config.DebugMode)
 
-	err := c.primaryCache.Init(c.Config, prefix)
+	err := c.cache.Init(c.Config, prefix)
 	if err != nil {
 		c.Logger.CtxError(context.Background(), "[Init] primary cache init error: %v", err)
 		return err
 	}
-	err = c.searchCache.Init(c.Config, prefix)
+	err = c.cache.Init(c.Config, prefix)
 	if err != nil {
 		c.Logger.CtxError(context.Background(), "[Init] search cache init error: %v", err)
 		return err
@@ -82,20 +82,20 @@ func (c *Gorm2Cache) IncrHitCount() {
 func (c *Gorm2Cache) ResetCache() error {
 	c.ResetHitCount()
 	ctx := context.Background()
-	err := c.searchCache.CleanCache(ctx)
+	err := c.cache.CleanCache(ctx)
 	if err != nil {
 		c.Logger.CtxError(ctx, "[ResetCache] reset search cache error: %v", err)
 		return err
 	}
-	return c.primaryCache.CleanCache(ctx)
+	return c.cache.CleanCache(ctx)
 }
 
 func (c *Gorm2Cache) InvalidateSearchCache(ctx context.Context, tableName string) error {
-	return c.searchCache.DeleteKeysWithPrefix(ctx, util.GenSearchCachePrefix(c.InstanceId, tableName))
+	return c.cache.DeleteKeysWithPrefix(ctx, util.GenSearchCachePrefix(c.InstanceId, tableName))
 }
 
 func (c *Gorm2Cache) InvalidatePrimaryCache(ctx context.Context, tableName string, primaryKey string) error {
-	return c.primaryCache.DeleteKey(ctx, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
+	return c.cache.DeleteKey(ctx, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 }
 
 func (c *Gorm2Cache) BatchInvalidatePrimaryCache(ctx context.Context, tableName string, primaryKeys []string) error {
@@ -103,11 +103,11 @@ func (c *Gorm2Cache) BatchInvalidatePrimaryCache(ctx context.Context, tableName 
 	for _, primaryKey := range primaryKeys {
 		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 	}
-	return c.primaryCache.BatchDeleteKeys(ctx, cacheKeys)
+	return c.cache.BatchDeleteKeys(ctx, cacheKeys)
 }
 
 func (c *Gorm2Cache) InvalidateAllPrimaryCache(ctx context.Context, tableName string) error {
-	return c.primaryCache.DeleteKeysWithPrefix(ctx, util.GenPrimaryCachePrefix(c.InstanceId, tableName))
+	return c.cache.DeleteKeysWithPrefix(ctx, util.GenPrimaryCachePrefix(c.InstanceId, tableName))
 }
 
 func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string, primaryKeys []string) (bool, error) {
@@ -115,25 +115,25 @@ func (c *Gorm2Cache) BatchPrimaryKeyExists(ctx context.Context, tableName string
 	for _, primaryKey := range primaryKeys {
 		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 	}
-	return c.primaryCache.BatchKeyExist(ctx, cacheKeys)
+	return c.cache.BatchKeyExist(ctx, cacheKeys)
 }
 
 func (c *Gorm2Cache) SearchKeyExists(ctx context.Context, tableName string, SQL string, vars ...interface{}) (bool, error) {
 	cacheKey := util.GenSearchCacheKey(c.InstanceId, tableName, SQL, vars...)
-	return c.searchCache.KeyExists(ctx, cacheKey)
+	return c.cache.KeyExists(ctx, cacheKey)
 }
 
 func (c *Gorm2Cache) BatchSetPrimaryKeyCache(ctx context.Context, tableName string, kvs []util.Kv) error {
 	for idx, kv := range kvs {
 		kvs[idx].Key = util.GenPrimaryCacheKey(c.InstanceId, tableName, kv.Key)
 	}
-	return c.primaryCache.BatchSetKeys(ctx, kvs)
+	return c.cache.BatchSetKeys(ctx, kvs)
 }
 
 func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tableName string,
 	sql string, vars ...interface{}) error {
 	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
-	return c.searchCache.SetKey(ctx, util.Kv{
+	return c.cache.SetKey(ctx, util.Kv{
 		Key:   key,
 		Value: cacheValue,
 	})
@@ -141,7 +141,7 @@ func (c *Gorm2Cache) SetSearchCache(ctx context.Context, cacheValue string, tabl
 
 func (c *Gorm2Cache) GetSearchCache(ctx context.Context, tableName string, sql string, vars ...interface{}) (string, error) {
 	key := util.GenSearchCacheKey(c.InstanceId, tableName, sql, vars...)
-	return c.searchCache.GetValue(ctx, key)
+	return c.cache.GetValue(ctx, key)
 }
 
 func (c *Gorm2Cache) BatchGetPrimaryCache(ctx context.Context, tableName string, primaryKeys []string) ([]string, error) {
@@ -149,5 +149,5 @@ func (c *Gorm2Cache) BatchGetPrimaryCache(ctx context.Context, tableName string,
 	for _, primaryKey := range primaryKeys {
 		cacheKeys = append(cacheKeys, util.GenPrimaryCacheKey(c.InstanceId, tableName, primaryKey))
 	}
-	return c.primaryCache.BatchGetValues(ctx, cacheKeys)
+	return c.cache.BatchGetValues(ctx, cacheKeys)
 }
