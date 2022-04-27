@@ -1,4 +1,4 @@
-# gorm-cache (working in progress, don't use)
+# gorm-cache
 
 `gorm-cache` aims to provide a look-aside, almost-no-code-modification cache solution for gorm v2 users. It only applys to situations where database table has only one single primary key.
 
