@@ -3,7 +3,6 @@ package cache
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -41,6 +40,9 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 
 				if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlySearch {
 					// cache search data
+					if int64(len(objects)) > cache.Config.CacheMaxItemCnt {
+						return
+					}
 
 					cache.Logger.CtxInfo(ctx, "[AfterQuery] start to set search cache for sql: %s", sql)
 					cacheBytes, err := json.Marshal(db.Statement.Dest)
@@ -64,7 +66,9 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 				if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlyPrimary {
 					// cache primary cache data
 					if len(primaryKeys) != len(objects) {
-						fmt.Println(primaryKeys, objects)
+						return
+					}
+					if int64(len(objects)) > cache.Config.CacheMaxItemCnt {
 						return
 					}
 					kvs := make([]util.Kv, 0, len(objects))
