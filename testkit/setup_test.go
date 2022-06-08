@@ -134,9 +134,12 @@ func TestMain(m *testing.M) {
 		os.Exit(-1)
 	}
 
-	primaryCache.AttachToDB(primaryDB)
-	searchCache.AttachToDB(searchDB)
-	allCache.AttachToDB(allDB)
+	primaryDB.Use(primaryCache)
+	searchDB.Use(searchCache)
+	allDB.Use(allCache)
+	// primaryCache.AttachToDB(primaryDB)
+	// searchCache.AttachToDB(searchDB)
+	// allCache.AttachToDB(allDB)
 
 	err = timer("prepare table and data", func() error {
 		return PrepareTableAndData(originalDB)
