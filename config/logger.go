@@ -21,15 +21,15 @@ func (l *DefaultLoggerImpl) SetIsDebug(d bool) {
 }
 
 func (l *DefaultLoggerImpl) CtxInfo(ctx context.Context, format string, v ...interface{}) {
-	timePrefix := time.Now().Format("2006-01-02 15:04:05.999")
 	if l.isDebug {
+		timePrefix := time.Now().Format("2006-01-02 15:04:05.999")
 		fmt.Printf(timePrefix+" [INFO] "+format+"\n", v...)
 	}
 }
 
 func (l *DefaultLoggerImpl) CtxError(ctx context.Context, format string, v ...interface{}) {
-	timePrefix := time.Now().Format("2006-01-02 15:04:05.999")
 	if l.isDebug {
+		timePrefix := time.Now().Format("2006-01-02 15:04:05.999")
 		fmt.Printf(timePrefix+" [ERROR] "+format+"\n", v...)
 	}
 }
