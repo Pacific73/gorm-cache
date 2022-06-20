@@ -3,9 +3,8 @@ package data_layer
 import (
 	"context"
 
-	"github.com/Pacific73/gorm-cache/util"
-
 	"github.com/Pacific73/gorm-cache/config"
+	"github.com/Pacific73/gorm-cache/util"
 )
 
 type DataLayerInterface interface {
@@ -18,9 +17,7 @@ type DataLayerInterface interface {
 	BatchGetValues(ctx context.Context, keys []string) ([]string, error)
 
 	// write
-
 	CleanCache(ctx context.Context) error
-
 	DeleteKeysWithPrefix(ctx context.Context, keyPrefix string) error
 	DeleteKey(ctx context.Context, key string) error
 	BatchDeleteKeys(ctx context.Context, keys []string) error

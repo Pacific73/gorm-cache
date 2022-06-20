@@ -4,11 +4,14 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/Pacific73/gorm-cache/util"
-
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/Pacific73/gorm-cache/data_layer"
+	"github.com/Pacific73/gorm-cache/util"
 	"gorm.io/gorm"
+)
+
+var (
+	_ gorm.Plugin = &Gorm2Cache{}
 )
 
 type Gorm2Cache struct {
@@ -21,14 +24,41 @@ type Gorm2Cache struct {
 	hitCount int64
 }
 
+func (c *Gorm2Cache) Name() string {
+	return util.GormCachePrefix
+}
+
+func (c *Gorm2Cache) Initialize(db *gorm.DB) (err error) {
+	err = db.Callback().Create().After("*").Register("gorm:cache:after_create", AfterCreate(c))
+	if err != nil {
+		return err
+	}
+
+	err = db.Callback().Delete().After("*").Register("gorm:cache:after_delete", AfterDelete(c))
+	if err != nil {
+		return err
+	}
+
+	err = db.Callback().Update().After("*").Register("gorm:cache:after_update", AfterUpdate(c))
+	if err != nil {
+		return err
+	}
+
+	err = db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", BeforeQuery(c))
+	if err != nil {
+		return err
+	}
+
+	err = db.Callback().Query().After("*").Register("gorm:cache:after_query", AfterQuery(c))
+	if err != nil {
+		return err
+	}
+
+	return
+}
+
 func (c *Gorm2Cache) AttachToDB(db *gorm.DB) {
-
-	_ = db.Callback().Create().After("*").Register("gorm:cache:after_create", AfterCreate(c))
-	_ = db.Callback().Delete().After("*").Register("gorm:cache:after_delete", AfterDelete(c))
-	_ = db.Callback().Update().After("*").Register("gorm:cache:after_update", AfterUpdate(c))
-
-	_ = db.Callback().Query().Before("gorm:query").Register("gorm:cache:before_query", BeforeQuery(c))
-	_ = db.Callback().Query().After("*").Register("gorm:cache:after_query", AfterQuery(c))
+	c.Initialize(db)
 }
 
 func (c *Gorm2Cache) Init() error {
