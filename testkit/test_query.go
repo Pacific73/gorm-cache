@@ -55,6 +55,21 @@ func testFind(cache *cache.Gorm2Cache, db *gorm.DB) {
 	So(models[1].Value1, ShouldEqual, 2)
 }
 
+func testPtrFind(cache *cache.Gorm2Cache, db *gorm.DB) {
+	err := cache.ResetCache()
+	So(err, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+
+	_prtValue := int64(1)
+	model := &TestModel{
+		PtrValue1: &_prtValue,
+	}
+	result := db.Model(model).Find(model)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 1)
+	So(model.Value1, ShouldEqual, 1)
+}
+
 func testPrimaryFind(cache *cache.Gorm2Cache, db *gorm.DB) {
 	err := cache.ResetCache()
 	So(err, ShouldBeNil)
