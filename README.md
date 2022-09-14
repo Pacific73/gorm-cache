@@ -40,7 +40,7 @@ func main() {
                                     // exceeds this number, then don't cache
     })
     // More options in `config.config.go`
-    db.Plugin(cache)    // use gorm plugin
+    db.Use(cache)    // use gorm plugin
     // cache.AttachToDB(db)
 
     var users []User
