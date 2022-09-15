@@ -3,9 +3,12 @@ package cache
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
+
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/Pacific73/gorm-cache/util"
 	"gorm.io/gorm"
@@ -48,7 +51,7 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 						return
 					}
 					cache.Logger.CtxInfo(ctx, "[AfterQuery] set cache: %v", string(cacheBytes))
-					err = cache.SetSearchCache(ctx, string(cacheBytes), tableName, sql, vars...)
+					err = cache.SetSearchCache(ctx, fmt.Sprintf("%d|", db.RowsAffected)+string(cacheBytes), tableName, sql, vars...)
 					if err != nil {
 						cache.Logger.CtxError(ctx, "[AfterQuery] set search cache for sql: %s error: %v", sql, err)
 						return
@@ -102,7 +105,14 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 				return
 			}
 			cache.Logger.CtxInfo(ctx, "[AfterQuery] get value: %s", cacheValue)
-			err = json.Unmarshal([]byte(cacheValue), db.Statement.Dest)
+			rowsAffectedPos := strings.Index(cacheValue, "|")
+			db.RowsAffected, err = strconv.ParseInt(cacheValue[:rowsAffectedPos], 10, 64)
+			if err != nil {
+				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal rows affected cache error: %v", err)
+				db.Error = util.ErrCacheUnmarshal
+				return
+			}
+			err = json.Unmarshal([]byte(cacheValue[rowsAffectedPos+1:]), db.Statement.Dest)
 			if err != nil {
 				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal search cache error: %v", err)
 				db.Error = util.ErrCacheUnmarshal
