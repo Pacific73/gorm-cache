@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -11,8 +10,15 @@ import (
 
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/Pacific73/gorm-cache/util"
+	jsoniter "github.com/json-iterator/go"
 	"gorm.io/gorm"
 )
+
+var json = jsoniter.Config{
+	EscapeHTML:             true,
+	ValidateJsonRawMessage: true,
+	TagKey:                 "gcache",
+}.Froze()
 
 func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 	return func(db *gorm.DB) {
