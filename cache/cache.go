@@ -86,12 +86,7 @@ func (c *Gorm2Cache) Init() error {
 
 	err := c.cache.Init(c.Config, prefix)
 	if err != nil {
-		c.Logger.CtxError(context.Background(), "[Init] primary cache init error: %v", err)
-		return err
-	}
-	err = c.cache.Init(c.Config, prefix)
-	if err != nil {
-		c.Logger.CtxError(context.Background(), "[Init] search cache init error: %v", err)
+		c.Logger.CtxError(context.Background(), "[Init] cache init error: %v", err)
 		return err
 	}
 	return nil
@@ -114,10 +109,10 @@ func (c *Gorm2Cache) ResetCache() error {
 	ctx := context.Background()
 	err := c.cache.CleanCache(ctx)
 	if err != nil {
-		c.Logger.CtxError(ctx, "[ResetCache] reset search cache error: %v", err)
+		c.Logger.CtxError(ctx, "[ResetCache] reset cache error: %v", err)
 		return err
 	}
-	return c.cache.CleanCache(ctx)
+	return nil
 }
 
 func (c *Gorm2Cache) InvalidateSearchCache(ctx context.Context, tableName string) error {

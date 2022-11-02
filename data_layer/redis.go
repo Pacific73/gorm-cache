@@ -154,5 +154,5 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 }
 
 func (r *RedisLayer) SetKey(ctx context.Context, kv util.Kv) error {
-	return r.client.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Microsecond).Err()
+	return r.client.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Millisecond).Err()
 }
