@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/Pacific73/gorm-cache/config"
@@ -97,68 +94,12 @@ func AfterQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 
 		if errors.Is(db.Error, util.SearchCacheHit) {
 			// search cache hit
-
-			cacheValue, err := cache.GetSearchCache(ctx, tableName, sql, vars...)
-			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] get cache value for sql %s error: %v", sql, err)
-				db.Error = util.ErrCacheLoadFailed
-				return
-			}
-			cache.Logger.CtxInfo(ctx, "[AfterQuery] get value: %s", cacheValue)
-			rowsAffectedPos := strings.Index(cacheValue, "|")
-			db.RowsAffected, err = strconv.ParseInt(cacheValue[:rowsAffectedPos], 10, 64)
-			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal rows affected cache error: %v", err)
-				db.Error = util.ErrCacheUnmarshal
-				return
-			}
-			err = json.Unmarshal([]byte(cacheValue[rowsAffectedPos+1:]), db.Statement.Dest)
-			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal search cache error: %v", err)
-				db.Error = util.ErrCacheUnmarshal
-				return
-			}
-			cache.IncrHitCount()
 			db.Error = nil
 			return
 		}
 
 		if errors.Is(db.Error, util.PrimaryCacheHit) {
 			// primary cache hit
-			primaryKeyObjs, ok := db.InstanceGet("gorm:cache:primary_keys")
-			if !ok {
-				cache.Logger.CtxError(ctx, "[AfterQuery] cannot get primary keys from db instance get")
-				db.Error = util.ErrCacheUnmarshal
-				return
-			}
-			primaryKeys := primaryKeyObjs.([]string)
-			cacheValues, err := cache.BatchGetPrimaryCache(ctx, tableName, primaryKeys)
-			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] get primary cache value for key %v error: %v", primaryKeys, err)
-				db.Error = util.ErrCacheLoadFailed
-				return
-			}
-			finalValue := ""
-
-			destKind := reflect.Indirect(reflect.ValueOf(db.Statement.Dest)).Kind()
-			if destKind == reflect.Struct && len(cacheValues) == 1 {
-				finalValue = cacheValues[0]
-			} else if (destKind == reflect.Array || destKind == reflect.Slice) && len(cacheValues) >= 1 {
-				finalValue = "[" + strings.Join(cacheValues, ",") + "]"
-			}
-			if len(finalValue) == 0 {
-				cache.Logger.CtxError(ctx, "[AfterQuery] length of cache values and dest not matched")
-				db.Error = util.ErrCacheUnmarshal
-				return
-			}
-
-			err = json.Unmarshal([]byte(finalValue), db.Statement.Dest)
-			if err != nil {
-				cache.Logger.CtxError(ctx, "[AfterQuery] unmarshal final value error: %v", err)
-				db.Error = util.ErrCacheUnmarshal
-				return
-			}
-			cache.IncrHitCount()
 			db.Error = nil
 			return
 		}

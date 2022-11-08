@@ -1,8 +1,15 @@
 package cache
 
 import (
+	"encoding/json"
+	"errors"
+	"reflect"
+	"strconv"
+	"strings"
+
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/Pacific73/gorm-cache/util"
+	"github.com/go-redis/redis"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 )
@@ -25,17 +32,33 @@ func BeforeQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 		if util.ShouldCache(tableName, cache.Config.Tables) {
 
 			if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlySearch {
-				keyExists, err := cache.SearchKeyExists(ctx, tableName, sql, db.Statement.Vars...)
+				// search cache hit
+
+				cacheValue, err := cache.GetSearchCache(ctx, tableName, sql, db.Statement.Vars...)
 				if err != nil {
-					cache.Logger.CtxError(ctx, "[BeforeQuery] check search key exists for key %s error: %v",
-						sql, err)
+					if !errors.Is(err, redis.Nil) {
+						cache.Logger.CtxError(ctx, "[BeforeQuery] get cache value for sql %s error: %v", sql, err)
+					}
+					db.Error = nil
 					return
 				}
-				cache.Logger.CtxInfo(ctx, "[BeforeQuery] search key exists ? %v", keyExists)
-				if keyExists {
-					db.Error = util.SearchCacheHit
+				cache.Logger.CtxInfo(ctx, "[BeforeQuery] get value: %s", cacheValue)
+				rowsAffectedPos := strings.Index(cacheValue, "|")
+				db.RowsAffected, err = strconv.ParseInt(cacheValue[:rowsAffectedPos], 10, 64)
+				if err != nil {
+					cache.Logger.CtxError(ctx, "[BeforeQuery] unmarshal rows affected cache error: %v", err)
+					db.Error = nil
 					return
 				}
+				err = json.Unmarshal([]byte(cacheValue[rowsAffectedPos+1:]), db.Statement.Dest)
+				if err != nil {
+					cache.Logger.CtxError(ctx, "[BeforeQuery] unmarshal search cache error: %v", err)
+					db.Error = nil
+					return
+				}
+				cache.IncrHitCount()
+				db.Error = util.SearchCacheHit
+				return
 			}
 
 			if cache.Config.CacheLevel == config.CacheLevelAll || cache.Config.CacheLevel == config.CacheLevelOnlyPrimary {
@@ -53,18 +76,40 @@ func BeforeQuery(cache *Gorm2Cache) func(db *gorm.DB) {
 					return
 				}
 
-				allKeyExist, err := cache.BatchPrimaryKeyExists(ctx, tableName, primaryKeys)
+				// primary cache hit
+				cacheValues, err := cache.BatchGetPrimaryCache(ctx, tableName, primaryKeys)
 				if err != nil {
-					cache.Logger.CtxError(ctx, "[BeforeQuery] check primary key exists for key %v error: %v", primaryKeys, err)
+					cache.Logger.CtxError(ctx, "[BeforeQuery] get primary cache value for key %v error: %v", primaryKeys, err)
+					db.Error = nil
 					return
 				}
-				cache.Logger.CtxInfo(ctx, "[BeforeQuery] all primary key exists ? %v", allKeyExist)
-				if allKeyExist {
-					db.InstanceSet("gorm:cache:primary_keys", primaryKeys)
-					db.Error = util.PrimaryCacheHit
-					// if part or none of the objects are cached, query the database
+				if len(cacheValues) != len(primaryKeys) {
+					db.Error = nil
 					return
 				}
+				finalValue := ""
+
+				destKind := reflect.Indirect(reflect.ValueOf(db.Statement.Dest)).Kind()
+				if destKind == reflect.Struct && len(cacheValues) == 1 {
+					finalValue = cacheValues[0]
+				} else if (destKind == reflect.Array || destKind == reflect.Slice) && len(cacheValues) >= 1 {
+					finalValue = "[" + strings.Join(cacheValues, ",") + "]"
+				}
+				if len(finalValue) == 0 {
+					cache.Logger.CtxError(ctx, "[BeforeQuery] length of cache values and dest not matched")
+					db.Error = util.ErrCacheUnmarshal
+					return
+				}
+
+				err = json.Unmarshal([]byte(finalValue), db.Statement.Dest)
+				if err != nil {
+					cache.Logger.CtxError(ctx, "[BeforeQuery] unmarshal final value error: %v", err)
+					db.Error = util.ErrCacheUnmarshal
+					return
+				}
+				cache.IncrHitCount()
+				db.Error = util.PrimaryCacheHit
+				return
 			}
 		}
 	}

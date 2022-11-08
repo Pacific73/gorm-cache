@@ -84,9 +84,9 @@ func (m *MemoryLayer) BatchDeleteKeys(ctx context.Context, keys []string) error 
 func (m *MemoryLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 	for _, kv := range kvs {
 		if m.ttl > 0 {
-			m.cache.Set(kv.Key, kv.Value, time.Duration(m.ttl)*time.Millisecond)
+			m.cache.Set(kv.Key, kv.Value, time.Duration(util.RandFloatingInt64(m.ttl))*time.Millisecond)
 		} else {
-			m.cache.Set(kv.Key, kv.Value, 30*24*time.Hour)
+			m.cache.Set(kv.Key, kv.Value, time.Duration(util.RandFloatingInt64(24))*time.Hour)
 		}
 	}
 	return nil
@@ -94,9 +94,9 @@ func (m *MemoryLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 
 func (m *MemoryLayer) SetKey(ctx context.Context, kv util.Kv) error {
 	if m.ttl > 0 {
-		m.cache.Set(kv.Key, kv.Value, time.Duration(m.ttl)*time.Millisecond)
+		m.cache.Set(kv.Key, kv.Value, time.Duration(util.RandFloatingInt64(m.ttl))*time.Millisecond)
 	} else {
-		m.cache.Set(kv.Key, kv.Value, 30*24*time.Hour)
+		m.cache.Set(kv.Key, kv.Value, time.Duration(util.RandFloatingInt64(24))*time.Hour)
 	}
 	return nil
 }

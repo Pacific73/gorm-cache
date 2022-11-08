@@ -142,7 +142,7 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 	}
 	_, err := r.client.Pipelined(func(pipeliner redis.Pipeliner) error {
 		for _, kv := range kvs {
-			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Millisecond)
+			result := pipeliner.Set(kv.Key, kv.Value, time.Duration(util.RandFloatingInt64(r.ttl))*time.Millisecond)
 			if result.Err() != nil {
 				r.logger.CtxError(ctx, "[BatchSetKeys] set key %s error: %v", kv.Key, result.Err())
 				return result.Err()
@@ -154,5 +154,5 @@ func (r *RedisLayer) BatchSetKeys(ctx context.Context, kvs []util.Kv) error {
 }
 
 func (r *RedisLayer) SetKey(ctx context.Context, kv util.Kv) error {
-	return r.client.Set(kv.Key, kv.Value, time.Duration(r.ttl)*time.Millisecond).Err()
+	return r.client.Set(kv.Key, kv.Value, time.Duration(util.RandFloatingInt64(r.ttl))*time.Millisecond).Err()
 }
