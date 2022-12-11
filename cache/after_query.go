@@ -1,12 +1,12 @@
 package cache
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/Pacific73/gorm-cache/config"
+	"github.com/Pacific73/gorm-cache/internal/json"
 	"github.com/Pacific73/gorm-cache/util"
 	"gorm.io/gorm"
 )
