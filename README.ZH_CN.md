@@ -27,18 +27,8 @@ func main() {
     redisClient := redis.NewClient(&redis.Options{
         Addr: "localhost:6379",    
     })
-    
-    cache, _ := cache.NewGorm2Cache(&config.CacheConfig{
-        CacheLevel:           config.CacheLevelAll,
-        CacheStorage:         config.CacheStorageRedis,
-        RedisConfig:          cache.NewRedisConfigWithClient(redisClient),
-        InvalidateWhenUpdate: true, // when you create/update/delete objects, invalidate cache
-        CacheTTL:             5000, // 5000 ms
-        CacheMaxItemCnt:      5,    // if length of objects retrieved one single time 
-                                    // exceeds this number, then don't cache
-    })
     // More options in `config.config.go`
-    db.Use(cache)    // use gorm plugin
+    db.Use(cache.NewPlugin(cache.WithRedisConfig(redisClient)))    // use gorm plugin
     // cache.AttachToDB(db)
 
     var users []User
