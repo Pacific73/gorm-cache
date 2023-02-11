@@ -7,16 +7,16 @@ import (
 
 	"github.com/Pacific73/gorm-cache/config"
 	"github.com/Pacific73/gorm-cache/util"
-	"github.com/karlseguin/ccache/v2"
+	"github.com/karlseguin/ccache/v3"
 )
 
 type MemoryLayer struct {
-	cache *ccache.Cache
+	cache *ccache.Cache[string]
 	ttl   int64
 }
 
 func (m *MemoryLayer) Init(conf *config.CacheConfig, prefix string) error {
-	c := ccache.New(ccache.Configure().MaxSize(int64(conf.CacheSize)))
+	c := ccache.New(ccache.Configure[string]().MaxSize(int64(conf.CacheSize)))
 	m.cache = c
 	m.ttl = conf.CacheTTL
 	return nil
@@ -47,7 +47,7 @@ func (m *MemoryLayer) GetValue(ctx context.Context, key string) (string, error) 
 	if item == nil || item.Expired() {
 		return "", fmt.Errorf("cannot get item")
 	}
-	return item.Value().(string), nil
+	return item.Value(), nil
 }
 
 func (m *MemoryLayer) BatchGetValues(ctx context.Context, keys []string) ([]string, error) {
@@ -55,7 +55,7 @@ func (m *MemoryLayer) BatchGetValues(ctx context.Context, keys []string) ([]stri
 	for _, key := range keys {
 		item := m.cache.Get(key)
 		if item != nil && !item.Expired() {
-			values = append(values, item.Value().(string))
+			values = append(values, item.Value())
 		}
 	}
 	if len(values) != len(keys) {
