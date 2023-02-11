@@ -10,7 +10,7 @@ import (
 	"github.com/Pacific73/gorm-cache/cache"
 
 	"github.com/Pacific73/gorm-cache/config"
-	"github.com/go-redis/redis"
+	redis "github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
