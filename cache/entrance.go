@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Pacific73/gorm-cache/config"
-	redis "github.com/redis/go-redis/v9"
+	"github.com/go-redis/redis/v8"
 )
 
 func NewGorm2Cache(cacheConfig *config.CacheConfig) (*Gorm2Cache, error) {
