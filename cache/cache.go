@@ -84,7 +84,7 @@ func (c *Gorm2Cache) Init() error {
 	c.Logger = c.Config.DebugLogger
 	c.Logger.SetIsDebug(c.Config.DebugMode)
 
-	err := c.cache.Init(c.Config, prefix)
+	err := c.cache.Init(context.Background(), c.Config, prefix)
 	if err != nil {
 		c.Logger.CtxError(context.Background(), "[Init] cache init error: %v", err)
 		return err

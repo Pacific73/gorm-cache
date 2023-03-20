@@ -15,7 +15,7 @@ type MemoryLayer struct {
 	ttl   int64
 }
 
-func (m *MemoryLayer) Init(conf *config.CacheConfig, prefix string) error {
+func (m *MemoryLayer) Init(ctx context.Context, conf *config.CacheConfig, prefix string) error {
 	c := ccache.New(ccache.Configure().MaxSize(int64(conf.CacheSize)))
 	m.cache = c
 	m.ttl = conf.CacheTTL
