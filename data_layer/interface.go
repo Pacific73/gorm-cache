@@ -8,7 +8,7 @@ import (
 )
 
 type DataLayerInterface interface {
-	Init(config *config.CacheConfig, prefix string) error
+	Init(ctx context.Context, config *config.CacheConfig, prefix string) error
 
 	// read
 	BatchKeyExist(ctx context.Context, keys []string) (bool, error)

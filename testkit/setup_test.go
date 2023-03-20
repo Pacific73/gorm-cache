@@ -2,6 +2,7 @@ package testkit
 
 import (
 	"fmt"
+	"github.com/redis/go-redis/v9"
 	"os"
 	"testing"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/Pacific73/gorm-cache/cache"
 
 	"github.com/Pacific73/gorm-cache/config"
-	"github.com/go-redis/redis"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

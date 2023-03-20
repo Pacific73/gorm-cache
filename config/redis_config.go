@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 	"sync"
 )
 
@@ -16,7 +16,7 @@ type RedisConfig struct {
 	Mode RedisConfigMode
 
 	Options *redis.Options
-	Client *redis.Client
+	Client  *redis.Client
 
 	once sync.Once
 }
