@@ -55,6 +55,23 @@ func testFind(cache *cache.Gorm2Cache, db *gorm.DB) {
 	So(models[1].Value1, ShouldEqual, 2)
 }
 
+func testPluck(cache *cache.Gorm2Cache, db *gorm.DB) {
+	err := cache.ResetCache()
+	So(err, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+
+	rawInts := make([]int64, 0)
+	result := db.Model(&TestModel{}).Where("id IN (?)", []int{1, 2}).Pluck("value1", &rawInts)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 0)
+
+	cacheInts := make([]int64, 0)
+	result = db.Model(&TestModel{}).Where("id IN (?)", []int{1, 2}).Pluck("value1", &cacheInts)
+	So(result.Error, ShouldBeNil)
+	So(cache.GetHitCount(), ShouldEqual, 1)
+	So(cacheInts, ShouldResemble, rawInts)
+}
+
 func testPtrFind(cache *cache.Gorm2Cache, db *gorm.DB) {
 	err := cache.ResetCache()
 	So(err, ShouldBeNil)

@@ -26,6 +26,8 @@ func TestSearchCacheFunctionality(t *testing.T) {
 
 		testFind(searchCache, searchDB)
 
+		testPluck(searchCache, searchDB)
+
 		testSearchFind(searchCache, searchDB)
 
 		testSearchCreate(searchCache, searchDB)

@@ -217,6 +217,7 @@ func getPrimaryKeysFromExpr(expr clause.Expr, ttype string) []string {
 func getObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface{}) {
 	primaryKeys = make([]string, 0)
 	values := make([]reflect.Value, 0)
+	isPluck := false
 
 	destValue := reflect.Indirect(reflect.ValueOf(db.Statement.Dest))
 	switch destValue.Kind() {
@@ -224,6 +225,9 @@ func getObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface
 		for i := 0; i < destValue.Len(); i++ {
 			elem := destValue.Index(i)
 			values = append(values, elem)
+		}
+		if isBasicType(destValue.Type().Elem().Kind()) {
+			isPluck = true
 		}
 	case reflect.Struct:
 		values = append(values, destValue)
@@ -241,7 +245,7 @@ func getObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface
 
 	objects = make([]interface{}, 0, len(values))
 	for _, elemValue := range values {
-		if valueOf != nil {
+		if valueOf != nil && !isPluck {
 			primaryKey, isZero := valueOf(context.Background(), elemValue)
 			if isZero {
 				continue
@@ -251,6 +255,10 @@ func getObjectsAfterLoad(db *gorm.DB) (primaryKeys []string, objects []interface
 		objects = append(objects, elemValue.Interface())
 	}
 	return primaryKeys, objects
+}
+
+func isBasicType(k reflect.Kind) bool {
+	return (k > 0 && k < reflect.Array) || (k == reflect.String)
 }
 
 func uniqueStringSlice(slice []string) []string {
